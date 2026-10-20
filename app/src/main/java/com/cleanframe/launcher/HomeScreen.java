@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
+import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -32,6 +33,12 @@ final class HomeScreen extends FrameLayout {
         void onAddApps();
     }
 
+    /** Where the app list starts and stops, in dp, so up to seven names fit without scrolling. */
+    private static final int LIST_TOP = 112;
+    private static final int LIST_PAD_TOP = 12;
+    private static final int LIST_PAD_BOTTOM = 36;
+    private static final float MAX_NAME_SP = 60;
+
     final ArtCanvasView background;
     private final TextView credit;
     private final LinearLayout list;
@@ -39,6 +46,18 @@ final class HomeScreen extends FrameLayout {
     private final ImageView appsButton;
     private final ImageView settingsButton;
     private final Actions actions;
+    /**
+     * The last painting either copy of the home screen decoded. The Home-button cover decodes
+     * the new painting first, and the home screen reuses it so it never draws the old one
+     * underneath as the cover lifts.
+     */
+    private static String lastArtId;
+    private static Bitmap lastBitmap;
+
+    /** The painting on screen now, or null. */
+    private String shownArtId;
+    /** App name size for the current list, in sp. */
+    private float nameSp = MAX_NAME_SP;
 
     HomeScreen(Context c, Actions a) {
         super(c);
@@ -59,12 +78,12 @@ final class HomeScreen extends FrameLayout {
         TextClock clock = new TextClock(c);
         clock.setFormat12Hour("h:mm");
         clock.setFormat24Hour("H:mm");
-        clock.setTextSize(40);
-        clock.setTypeface(Ui.REGULAR);
+        clock.setTextSize(48);
+        clock.setTypeface(Ui.serif(c));
         clock.setTextColor(Color.WHITE);
         Ui.shadow(clock);
         LayoutParams clockLp = wrap(Gravity.TOP | Gravity.START);
-        clockLp.setMargins(Ui.dp(c, 64), Ui.dp(c, 40), 0, 0);
+        clockLp.setMargins(Ui.dp(c, 64), Ui.dp(c, 34), 0, 0);
         addView(clock, clockLp);
 
         LinearLayout controls = new LinearLayout(c);
@@ -94,15 +113,15 @@ final class HomeScreen extends FrameLayout {
         ScrollView scroll = new ScrollView(c);
         scroll.setVerticalScrollBarEnabled(false);
         scroll.setClipToPadding(false);
-        scroll.setPadding(0, Ui.dp(c, 16), 0, Ui.dp(c, 48));
+        scroll.setPadding(0, Ui.dp(c, LIST_PAD_TOP), 0, Ui.dp(c, LIST_PAD_BOTTOM));
         list = new LinearLayout(c);
         list.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(list, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         LayoutParams scrollLp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        scrollLp.setMargins(Ui.dp(c, 48), Ui.dp(c, 120), 0, 0);
+        scrollLp.setMargins(Ui.dp(c, 48), Ui.dp(c, LIST_TOP), 0, 0);
         addView(scroll, scrollLp);
 
-        credit = Ui.text(c, "", 12, Ui.REGULAR, Color.argb(170, 255, 255, 255));
+        credit = Ui.text(c, "", 16, Ui.serifItalic(c), Color.argb(190, 255, 255, 255));
         Ui.shadow(credit);
         credit.setGravity(Gravity.END);
         credit.setMaxWidth(Ui.dp(c, 420));
@@ -116,17 +135,56 @@ final class HomeScreen extends FrameLayout {
         List<AppCatalog.AppEntry> apps = AppCatalog.load(c);
         Map<String, AppCatalog.AppEntry> byPkg = AppCatalog.index(apps);
         if (!Prefs.homeInitialized(c)) Prefs.setHomeOrder(c, AppCatalog.defaultHome(apps));
+        List<String> order = Prefs.homeOrder(c);
+        if (AppCatalog.addNewDefaults(c, apps, order)) Prefs.setHomeOrder(c, order);
         List<AppCatalog.AppEntry> out = new ArrayList<>();
-        for (String pkg : Prefs.homeOrder(c)) {
+        for (String pkg : order) {
             AppCatalog.AppEntry app = byPkg.get(pkg);
-            if (app != null) out.add(app);  // Uninstalled apps keep their slot in case they come back.
+            // Uninstalled apps keep their slot in case they come back.
+            if (app != null && out.size() < AppCatalog.HOME_MAX) out.add(app);
         }
         return out;
+    }
+
+    /**
+     * The painting Home should show. A new one is picked after the TV restarts, when Home is
+     * pressed, and when the art interval runs out; otherwise the current one stays. Home
+     * presses within a few seconds of a pick count as the same press, since the Home-button
+     * cover and the home screen both see it.
+     */
+    static ArtRepository.Artwork homeArtwork(Context c, ArtRepository repo, boolean homePressed) {
+        ArtRepository.Artwork art = repo.find(Prefs.homeArtId(c));
+        long now = System.currentTimeMillis();
+        long since = Prefs.homeArtSince(c);
+        long bootedAt = now - SystemClock.elapsedRealtime();
+        boolean due = art == null
+                || since < bootedAt
+                || now - since > Prefs.artIntervalMinutes(c) * 60_000L
+                || (homePressed && now - since > 15_000L);
+        if (due) {
+            ArtRepository.Artwork next = repo.pickNext();
+            if (next != null) {
+                art = next;
+                Prefs.setHomeArt(c, art.id);
+            }
+        }
+        return art;
+    }
+
+    /** {@code a}'s bitmap if it was the last one decoded for Home, else null. */
+    static synchronized Bitmap decoded(ArtRepository.Artwork a) {
+        return a.id.equals(lastArtId) ? lastBitmap : null;
+    }
+
+    /** True if {@code a} is already the painting on screen. */
+    boolean isShowing(ArtRepository.Artwork a) {
+        return a != null && a.id.equals(shownArtId) && background.hasArtwork();
     }
 
     /** Rebuilds the list and focuses {@code focusPkg}, or the first row. */
     void bindApps(List<AppCatalog.AppEntry> apps, String focusPkg) {
         list.removeAllViews();
+        nameSp = nameSize(Math.max(apps.size(), 4));
         View focusTarget = null;
         for (AppCatalog.AppEntry app : apps) {
             View row = appRow(app);
@@ -155,24 +213,33 @@ final class HomeScreen extends FrameLayout {
     }
 
     void showArtwork(ArtRepository.Artwork a, Bitmap b, boolean animate) {
+        shownArtId = a.id;
+        synchronized (HomeScreen.class) {
+            lastArtId = a.id;
+            lastBitmap = b;
+        }
         background.setArtwork(b, animate);
         credit.setText(a.title + (a.artist.isEmpty() ? "" : " — " + a.artist) + "\n" + a.museum);
     }
 
     void clearArtwork() {
+        shownArtId = null;
         background.setArtwork(null, false);
         credit.setText("");
     }
 
     private View appRow(final AppCatalog.AppEntry app) {
         LinearLayout row = baseRow();
-        ImageView icon = new ImageView(getContext());
-        icon.setImageDrawable(app.icon(getContext().getPackageManager()));
-        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        int s = Ui.dp(getContext(), 46);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(s, s);
-        iconLp.rightMargin = Ui.dp(getContext(), 22);
-        row.addView(icon, iconLp);
+        // Logos sit in one fixed box so the names line up: square marks fill its height,
+        // wordmarks its width.
+        ImageView logo = new ImageView(getContext());
+        logo.setImageDrawable(AppLogos.logo(getContext(), app));
+        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        logo.setAlpha(0.95f);
+        int h = Ui.dp(getContext(), nameSp * 0.68f);
+        LinearLayout.LayoutParams logoLp = new LinearLayout.LayoutParams(Math.round(h * 2.1f), h);
+        logoLp.rightMargin = Ui.dp(getContext(), nameSp * 0.45f);
+        row.addView(logo, logoLp);
         row.addView(rowLabel(app.label));
         row.setContentDescription(app.label);
         row.setOnClickListener(new OnClickListener() {
@@ -188,7 +255,7 @@ final class HomeScreen extends FrameLayout {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setFocusable(true);
         row.setClickable(true);
-        row.setPadding(Ui.dp(getContext(), 16), Ui.dp(getContext(), 2), Ui.dp(getContext(), 32), Ui.dp(getContext(), 2));
+        row.setPadding(Ui.dp(getContext(), 16), 0, Ui.dp(getContext(), 32), 0);
         row.setOnFocusChangeListener(new OnFocusChangeListener() {
             @Override public void onFocusChange(View v, boolean hasFocus) { styleFocus(row, hasFocus); }
         });
@@ -197,12 +264,24 @@ final class HomeScreen extends FrameLayout {
     }
 
     private TextView rowLabel(String label) {
-        TextView name = Ui.text(getContext(), label, 54, Ui.DISPLAY, Color.WHITE);
-        name.setLetterSpacing(-0.02f);
+        TextView name = Ui.text(getContext(), label, nameSp, Ui.serif(getContext()), Color.WHITE);
         name.setSingleLine(true);
-        name.setPadding(0, Ui.dp(getContext(), 6), 0, Ui.dp(getContext(), 10));
+        int pad = Ui.dp(getContext(), nameSp * NAME_PAD);
+        name.setPadding(0, pad, 0, pad);
         Ui.shadow(name);
         return name;
+    }
+
+    /** Space above and below each name, as a fraction of its size; Instrument Serif lines are 1.3 tall. */
+    private static final float NAME_PAD = 0.06f;
+
+    /** The largest name size at which {@code rows} names fit between the clock and the bottom edge. */
+    private float nameSize(int rows) {
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        float screenDp = dm.heightPixels / dm.density;
+        float rowDp = (screenDp - LIST_TOP - LIST_PAD_TOP - LIST_PAD_BOTTOM) / rows;
+        float sp = rowDp / (1.3f + 2 * NAME_PAD) * dm.density / dm.scaledDensity;
+        return Math.min(MAX_NAME_SP, sp);
     }
 
     /** The "type" focus style: the focused name is bright and nudged right, the rest recede. */

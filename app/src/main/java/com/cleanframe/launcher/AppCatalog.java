@@ -60,10 +60,18 @@ public final class AppCatalog {
     private static final String[][] DEFAULT_HOME = {
             {"youtube", "com.amazon.firetv.youtube", "com.google.android.youtube.tv"},
             {"prime video", "com.amazon.avod", "com.amazon.amazonvideo.livingroom", "com.amazon.avod.thirdpartyclient"},
-            {"wow presents", "wow"},
+            {"wow", "com.wowpresentsplus.firetv", "com.wowpresentsplus.androidtv"},
             {"hulu", "com.hulu.livingroomplus", "com.hulu.plus"},
             {"paramount", "com.cbs.ott", "com.cbs.app"},
+            {"tubi", "com.tubitv.ott", "com.tubitv"},
+            {"crunchyroll", "com.crunchyroll.crunchyroid"},
     };
+
+    /** Home shows at most this many apps, so every name fits on screen at full size. */
+    public static final int HOME_MAX = 7;
+
+    /** Defaults that Home already had before Tubi and Crunchyroll joined, see {@link #addNewDefaults}. */
+    private static final String[] FIRST_DEFAULTS = {"youtube", "prime video", "hulu", "paramount"};
 
     private AppCatalog() {}
 
@@ -97,24 +105,64 @@ public final class AppCatalog {
 
     public static List<String> defaultHome(List<AppEntry> apps) {
         List<String> out = new ArrayList<>();
-        Map<String, AppEntry> byPkg = index(apps);
         for (String[] want : DEFAULT_HOME) {
-            AppEntry best = null;
-            String prefix = want[0];
-            for (AppEntry a : apps) {
-                if (out.contains(a.pkg)) continue;
-                if (a.label.toLowerCase(Locale.US).startsWith(prefix)
-                        && (best == null || a.label.length() < best.label.length())) {
-                    best = a;  // Shortest match wins, so "YouTube" beats "YouTube Kids".
-                }
-            }
-            for (int i = 1; best == null && i < want.length; i++) {
-                AppEntry a = byPkg.get(want[i]);
-                if (a != null && !out.contains(a.pkg)) best = a;
-            }
-            if (best != null) out.add(best.pkg);
+            AppEntry best = find(apps, want, out);
+            if (best != null && out.size() < HOME_MAX) out.add(best.pkg);
         }
         return out;
+    }
+
+    /**
+     * Puts default apps on Home the first time they are installed, for Homes set up before
+     * those apps were defaults (or before the app was installed). Each default is offered
+     * once; after that, removing it in the Home editor is respected. Returns true if
+     * {@code home} changed.
+     */
+    public static boolean addNewDefaults(Context c, List<AppEntry> apps, List<String> home) {
+        List<String> seen = Prefs.homeDefaultsSeen(c);
+        boolean seenChanged = false;
+        if (seen.isEmpty()) {
+            // Homes made by v1.0.4 or earlier already had these, or had them removed.
+            for (String key : FIRST_DEFAULTS) seen.add(key);
+            seenChanged = true;
+        }
+        Map<String, AppEntry> byPkg = index(apps);
+        int shown = 0;
+        for (String pkg : home) if (byPkg.containsKey(pkg)) shown++;
+        List<String> removed = Prefs.recentlyRemoved(c);
+        boolean homeChanged = false;
+        for (String[] want : DEFAULT_HOME) {
+            if (seen.contains(want[0])) continue;
+            AppEntry app = find(apps, want, new ArrayList<String>());
+            if (app == null) continue;  // Not installed yet; offer it when it is.
+            seen.add(want[0]);
+            seenChanged = true;
+            if (home.contains(app.pkg) || removed.contains(app.pkg) || shown >= HOME_MAX) continue;
+            home.add(app.pkg);
+            shown++;
+            homeChanged = true;
+        }
+        if (seenChanged) Prefs.setHomeDefaultsSeen(c, seen);
+        return homeChanged;
+    }
+
+    /** The installed app for one {@link #DEFAULT_HOME} entry, skipping {@code taken}. */
+    private static AppEntry find(List<AppEntry> apps, String[] want, List<String> taken) {
+        AppEntry best = null;
+        String prefix = want[0];
+        for (AppEntry a : apps) {
+            if (taken.contains(a.pkg)) continue;
+            if (a.label.toLowerCase(Locale.US).startsWith(prefix)
+                    && (best == null || a.label.length() < best.label.length())) {
+                best = a;  // Shortest match wins, so "YouTube" beats "YouTube Kids".
+            }
+        }
+        Map<String, AppEntry> byPkg = index(apps);
+        for (int i = 1; best == null && i < want.length; i++) {
+            AppEntry a = byPkg.get(want[i]);
+            if (a != null && !taken.contains(a.pkg)) best = a;
+        }
+        return best;
     }
 
     public static Intent launchIntent(Context c, String pkg) {

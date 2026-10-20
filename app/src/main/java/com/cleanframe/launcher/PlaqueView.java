@@ -20,7 +20,7 @@ public class PlaqueView extends LinearLayout {
         int p = Ui.dp(c, 16);
         setPadding(p, Ui.dp(c, 12), p, Ui.dp(c, 12));
 
-        title = Ui.text(c, "", 17, Ui.DISPLAY, Color.WHITE);
+        title = Ui.text(c, "", 22, Ui.serif(c), Color.WHITE);
         title.setMaxLines(2);
         title.setMaxWidth(Ui.dp(c, 360));
         title.setGravity(Gravity.END);

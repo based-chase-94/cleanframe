@@ -2,14 +2,17 @@
 
 A custom home screen and Frame-style art mode for the TCL 65S450F (Fire TV Edition, Fire OS 7.7, Android 9). No root needed.
 
-- **Home**: big app names over full-screen artwork, clock top-left, and Art / All apps / Settings icons top-right. Home only launches apps.
+- **Home**: up to seven big app names in Instrument Serif, each with a white cut-out logo, over full-screen artwork, clock top-left, and Art / All apps / Settings icons top-right. Home only launches apps.
 - **All apps**: every installed app. OK opens it; Menu (☰) or holding OK adds it to Home or removes it.
 - **Settings → Apps on Home**: a two-column editor. OK picks an app up, Up/Down moves it, OK places it. Right reaches Remove; the app moves to *Recently removed* and focus follows it, so a second OK puts it back where it was. Undo and Done are top-right. Changes save as you go.
+- **Home painting**: a new painting after every restart, every Home press, and whenever the art interval runs out.
 - **Art mode**: public-domain paintings from the Art Institute of Chicago, The Met and the Cleveland Museum of Art. It starts after a few idle minutes on Home (or from the picture icon). Left/Right step through works, Up/Down show the label, OK or Back go home. Around 40 works are kept on the TV so it also works offline. Choose full screen or a light or dark mat.
 - **Screensaver**: the same art as the system screensaver, so the TV shows paintings even when it goes idle inside another app.
 - **Home button**: Fire OS always sends Home to the Amazon launcher. An accessibility service catches the Home key and opens CleanFrame instead; holding Home opens Fire TV settings. If this Fire OS build doesn't pass the Home key on, the service watches for the Amazon home screen, and covers it at once with a working copy of the CleanFrame home screen. Android holds app launches for 5 seconds after Home, so anything chosen on that copy opens when the hold ends.
 
-Default Home apps are YouTube, Prime Video, WOW Presents Plus, Hulu and Paramount+, picked by name from what's installed.
+Default Home apps are YouTube, Prime Video, WOW Presents Plus, Hulu, Paramount+, Tubi and Crunchyroll, picked by name from what's installed. A default app installed later joins Home the first time it's seen, if there's room; once removed in the editor it stays removed.
+
+Logos for YouTube, Prime Video, Hulu, Paramount+, Tubi and Crunchyroll are vector drawables made from [Simple Icons](https://simpleicons.org) (CC0). Any other app's logo is lifted out of its own icon at runtime (`AppLogos`). The font is [Instrument Serif](https://fonts.google.com/specimen/Instrument+Serif) (SIL Open Font License, in `assets/fonts`).
 
 ## Install on the TV
 
@@ -48,7 +51,8 @@ Every build is signed with the key in `keystore/`, so a Mac build installs over 
 
 | File | What it does |
 | --- | --- |
-| `HomeActivity` | Home screen |
+| `HomeActivity`, `HomeScreen` | Home screen; `HomeScreen` is also the Home-button cover |
+| `AppLogos` | White logos for the Home list |
 | `AllAppsActivity` | All apps grid |
 | `SettingsActivity` | Settings list |
 | `HomeEditorActivity` | Apps on Home editor |

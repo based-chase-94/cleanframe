@@ -12,6 +12,7 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -44,6 +45,7 @@ public class HomeEditorActivity extends Activity {
 
     private LinearLayout onHomeColumn;
     private LinearLayout notOnHomeColumn;
+    private TextView onHomeTitle;
     private TextView undoButton;
     private TextView hint;
 
@@ -60,7 +62,7 @@ public class HomeEditorActivity extends Activity {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding(Ui.dp(this, 64), Ui.dp(this, 40), Ui.dp(this, 64), 0);
-        page.addView(Ui.text(this, "Apps on Home", 34, Ui.DISPLAY, Color.WHITE));
+        page.addView(Ui.text(this, "Apps on Home", 44, Ui.serif(this), Color.WHITE));
         hint = Ui.text(this, "", 14, Ui.REGULAR, Color.argb(150, 255, 255, 255));
         hint.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 20));
         page.addView(hint);
@@ -111,6 +113,7 @@ public class HomeEditorActivity extends Activity {
         TextView t = Ui.text(this, title.toUpperCase(), 13, Ui.DISPLAY, Color.argb(140, 255, 255, 255));
         t.setLetterSpacing(0.08f);
         t.setPadding(Ui.dp(this, 16), 0, 0, Ui.dp(this, 8));
+        if (content == onHomeColumn) onHomeTitle = t;
         box.addView(t);
         ScrollView scroll = new ScrollView(this);
         scroll.setVerticalScrollBarEnabled(false);
@@ -174,6 +177,7 @@ public class HomeEditorActivity extends Activity {
             if (!home.contains(pkg) && !recentShown.contains(pkg)) notOnHomeColumn.addView(otherItem(pkg));
         }
 
+        onHomeTitle.setText("ON HOME · " + shownOnHome() + " OF " + AppCatalog.HOME_MAX);
         undoButton.setAlpha(undo.isEmpty() ? 0.4f : 1f);
         hint.setText(lifted != null
                 ? "▲▼ move · OK places it · Back cancels"
@@ -256,7 +260,18 @@ public class HomeEditorActivity extends Activity {
         render("other:" + pkg);
     }
 
+    /** Installed apps on Home; uninstalled ones keep their slot but don't count toward the limit. */
+    private int shownOnHome() {
+        int n = 0;
+        for (String pkg : home) if (apps.containsKey(pkg)) n++;
+        return n;
+    }
+
     private void add(String pkg) {
+        if (shownOnHome() >= AppCatalog.HOME_MAX) {
+            Toast.makeText(this, "Home holds " + AppCatalog.HOME_MAX + " apps. Remove one first.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         pushUndo(home, recent);
         Integer at = removedFrom.remove(pkg);
         int index = at == null ? home.size() : Math.min(at, home.size());

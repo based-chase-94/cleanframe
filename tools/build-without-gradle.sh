@@ -14,7 +14,7 @@ VERSION_CODE=$(sed -n "s/.*versionCode \([0-9]*\).*/\1/p" app/build.gradle)
 rm -rf "$OUT" && mkdir -p "$OUT/gen" "$OUT/classes"
 
 aapt package -f -m \
-  -M app/src/main/AndroidManifest.xml -S app/src/main/res -I "$ANDROID_JAR" \
+  -M app/src/main/AndroidManifest.xml -S app/src/main/res -A app/src/main/assets -I "$ANDROID_JAR" \
   -J "$OUT/gen" -F "$OUT/unsigned.apk" \
   --min-sdk-version 25 --target-sdk-version 28 \
   --version-code "$VERSION_CODE" --version-name "$VERSION"
