@@ -73,6 +73,12 @@ final class Posters {
         });
     }
 
+    /** The saved poster file for {@code s}, or null if it hasn't been fetched yet. */
+    static File cached(Context c, Shows.Show s) {
+        File f = new File(new File(c.getFilesDir(), "posters"), key(s) + ".img");
+        return f.exists() ? f : null;
+    }
+
     /** Forgets the saved poster so the next visit fetches it again. */
     static void forget(Context c, Shows.Show s) {
         String key = key(s);

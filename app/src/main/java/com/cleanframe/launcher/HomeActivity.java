@@ -21,6 +21,7 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         repo = ArtRepository.get(this);
+        BookmarkServer.start(this);
         screen = new HomeScreen(this, this);
         setContentView(screen);
     }

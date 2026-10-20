@@ -71,7 +71,12 @@ final class Shows {
     private static final Pattern ASIN = Pattern.compile("/(?:dp|detail)/([A-Z0-9]{10})");
     private static final Pattern UUID_TAIL = Pattern.compile("-?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
 
+    /** Called on the main thread after every save, so an open For You can redraw. */
+    private static Runnable onChange;
+
     private Shows() {}
+
+    static void setOnChange(Runnable r) { onChange = r; }
 
     static List<Show> load(Context c) {
         String raw = Prefs.forYouShows(c);
@@ -106,6 +111,22 @@ final class Shows {
             // JSONObject.put only throws for non-finite numbers.
         }
         Prefs.setForYouShows(c, a.toString());
+        if (onChange != null) onChange.run();
+    }
+
+    /** The service's own website search for {@code q}, to find a show's web address. */
+    static String webSearch(String key, String q) {
+        String e = Uri.encode(q);
+        switch (key) {
+            case "youtube": return "https://www.youtube.com/results?search_query=" + e;
+            case "prime video": return "https://www.amazon.com/s?i=instant-video&k=" + e;
+            case "wow": return "https://www.wowpresentsplus.com/search?q=" + e;
+            case "hulu": return "https://www.hulu.com/search?q=" + e;
+            case "paramount": return "https://www.paramountplus.com/search/?q=" + e;
+            case "tubi": return "https://tubitv.com/search/" + e;
+            case "crunchyroll": return "https://www.crunchyroll.com/search?q=" + e;
+            default: return "";
+        }
     }
 
     static String appName(String key) {

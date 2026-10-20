@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>For You shows</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<style>
+  @font-face { font-family: "Instrument Serif"; src: url("fonts/InstrumentSerif-Regular.ttf"); }
+  @font-face { font-family: "Instrument Serif"; font-style: italic; src: url("fonts/InstrumentSerif-Italic.ttf"); }
+  :root {
+    --bg: #0e0e10; --panel: #18181b; --line: #2a2a2e; --text: #f4f4f5; --muted: #a1a1aa;
+    --accent: #ffffff; --ok: #86efac; --warn: #fcd34d; --bad: #fca5a5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1, h2, .serif { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; }
+  h1 { font-size: 52px; margin: 0; line-height: 1; }
+  h2 { font-size: 30px; margin: 40px 0 12px; }
+  .sub { color: var(--muted); margin: 8px 0 0; }
+  .status { color: var(--muted); font-size: 13px; min-height: 18px; margin-top: 6px; }
+  .status.err { color: var(--bad); }
+  input, select, button { font: inherit; color: var(--text); }
+  input, select { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; width: 100%; }
+  input:focus, select:focus { outline: 2px solid #ffffff55; outline-offset: 1px; }
+  button { background: #ffffff14; border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; cursor: pointer; white-space: nowrap; }
+  button:hover { background: #ffffff26; }
+  button.primary { background: var(--accent); color: #000; border-color: var(--accent); }
+  button.icon { padding: 6px 10px; }
+  button:disabled { opacity: .4; cursor: default; }
+  .search { display: flex; gap: 10px; }
+  .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px; margin-top: 16px; }
+  .result { cursor: pointer; border-radius: 10px; padding: 6px; border: 1px solid transparent; }
+  .result:hover { border-color: var(--line); background: var(--panel); }
+  .poster { aspect-ratio: 2 / 3; width: 100%; border-radius: 8px; background: #ffffff10 center / cover no-repeat;
+    display: flex; align-items: center; justify-content: center; text-align: center; padding: 8px;
+    font-family: "Instrument Serif", Georgia, serif; font-size: 20px; line-height: 1.1; overflow: hidden; }
+  .result .t { margin-top: 6px; font-size: 14px; }
+  .result .m { color: var(--muted); font-size: 12px; }
+  .shows { display: flex; flex-direction: column; gap: 10px; }
+  .show { display: grid; grid-template-columns: 64px 1fr auto; gap: 16px; align-items: start; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .show .poster { font-size: 12px; }
+  .fields { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
+  .fields .wide { grid-column: 1 / -1; }
+  .linkrow { display: flex; gap: 8px; }
+  .opens { font-size: 12px; margin-top: 2px; }
+  .opens.show-ok { color: var(--ok); } .opens.search { color: var(--warn); } .opens.app, .opens.missing { color: var(--bad); }
+  .side { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+  .side .row { display: flex; gap: 6px; }
+  .empty { color: var(--muted); padding: 24px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; }
+  .bar { position: sticky; bottom: 0; background: linear-gradient(transparent, var(--bg) 30%); padding: 24px 0 8px; display: flex; gap: 10px; align-items: center; }
+  .help { color: var(--muted); font-size: 13px; }
+  .help b { color: var(--text); font-weight: 500; }
+  @media (max-width: 640px) {
+    h1 { font-size: 40px; }
+    .show { grid-template-columns: 48px 1fr; }
+    .side { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; }
+    .fields { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>For You</h1>
+  <p class="sub">The shows on your TV's For You screen. Changes save to the TV straight away.</p>
+  <div class="status" id="status"></div>
+
+  <h2>Add a show</h2>
+  <form class="search" id="searchForm">
+    <input id="q" placeholder="Search for a show, e.g. The Bear" autocomplete="off">
+    <button class="primary" type="submit">Search</button>
+    <button type="button" id="addBlank">Add without searching</button>
+  </form>
+  <div class="results" id="results"></div>
+
+  <h2>On For You</h2>
+  <p class="help">For a show to open directly, paste its page address from the service's website into <b>Web address</b>.
+    <b>Find it</b> opens the service's search in a new tab. Without an address, the TV searches for the show in the app, or just opens the app.</p>
+  <div class="shows" id="shows"></div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var state = { shows: [], apps: [] };
+  var saveTimer = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function status(msg, err) {
+    var s = $("status");
+    s.textContent = msg || "";
+    s.className = "status" + (err ? " err" : "");
+  }
+
+  function api(method, path, body) {
+    var opts = { method: method, headers: {} };
+    if (method !== "GET") opts.headers["X-CleanFrame"] = "1";
+    if (body !== undefined) {
+      opts.headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(body);
+    }
+    return fetch(path, opts).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
+  }
+
+  function uid() {
+    return "w" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function appName(key) {
+    for (var i = 0; i < state.apps.length; i++) if (state.apps[i].key === key) return state.apps[i].name;
+    return key;
+  }
+
+  function appForLink(link) {
+    var hosts = {
+      "youtube.com": "youtube", "youtu.be": "youtube", "amazon.com": "prime video", "primevideo.com": "prime video",
+      "wowpresentsplus.com": "wow", "hulu.com": "hulu", "paramountplus.com": "paramount", "tubitv.com": "tubi",
+      "crunchyroll.com": "crunchyroll"
+    };
+    try {
+      var h = new URL(/^https?:/i.test(link) ? link : "https://" + link).hostname.toLowerCase();
+      for (var k in hosts) if (h === k || h.slice(-(k.length + 1)) === "." + k) return hosts[k];
+    } catch (e) {}
+    return null;
+  }
+
+  function el(tag, attrs, kids) {
+    var e = document.createElement(tag);
+    for (var k in attrs || {}) {
+      if (k === "text") e.textContent = attrs[k];
+      else if (k === "class") e.className = attrs[k];
+      else if (k.slice(0, 2) === "on") e.addEventListener(k.slice(2), attrs[k]);
+      else e.setAttribute(k, attrs[k]);
+    }
+    (kids || []).forEach(function (c) { if (c) e.appendChild(c); });
+    return e;
+  }
+
+  function posterBox(show) {
+    var box = el("div", { "class": "poster", text: show.title });
+    var src = show.poster || (show.hasPoster ? "poster/" + encodeURIComponent(show.id) + "?t=" + Date.now() : "");
+    if (src) {
+      var img = new Image();
+      img.onload = function () { box.style.backgroundImage = "url(\"" + src + "\")"; box.textContent = ""; };
+      img.src = src;
+    }
+    return box;
+  }
+
+  function opensClass(text) {
+    if (/show/i.test(text) && !/search/i.test(text)) return "show-ok";
+    if (/search/i.test(text)) return "search";
+    if (/not installed/i.test(text)) return "missing";
+    return "app";
+  }
+
+  function render() {
+    var list = $("shows");
+    list.innerHTML = "";
+    if (!state.shows.length) {
+      list.appendChild(el("div", { "class": "empty", text: "No shows yet. Search above to add one." }));
+      return;
+    }
+    state.shows.forEach(function (s, i) {
+      var title = el("input", { value: s.title, placeholder: "Show name" });
+      title.addEventListener("input", function () { s.title = title.value; queueSave(); });
+
+      var app = el("select");
+      state.apps.forEach(function (a) {
+        var o = el("option", { value: a.key, text: a.name + (a.installed ? "" : " (not installed)") });
+        if (a.key === s.app) o.selected = true;
+        app.appendChild(o);
+      });
+      app.addEventListener("change", function () { s.app = app.value; queueSave(); });
+
+      var link = el("input", { value: s.link, placeholder: "Web address, e.g. https://www.hulu.com/series/…" });
+      link.addEventListener("input", function () {
+        s.link = link.value.trim();
+        var detected = appForLink(s.link);
+        if (detected && detected !== s.app) { s.app = detected; app.value = detected; }
+        queueSave();
+      });
+      var find = el("button", { type: "button", text: "Find it", onclick: function () {
+        var a = state.apps.filter(function (x) { return x.key === s.app; })[0];
+        if (a && a.search) window.open(a.search + encodeURIComponent(s.title), "_blank");
+      }});
+
+      var poster = el("input", { value: s.poster, placeholder: "Poster image address (optional)" });
+      poster.addEventListener("change", function () { s.poster = poster.value.trim(); queueSave(true); });
+
+      var opens = el("div", { "class": "opens " + opensClass(s.opens || ""), text: s.opens || "" });
+
+      var fields = el("div", { "class": "fields" }, [
+        title, app,
+        el("div", { "class": "wide linkrow" }, [link, find]),
+        el("div", { "class": "wide" }, [poster, opens])
+      ]);
+
+      var up = el("button", { type: "button", "class": "icon", title: "Move earlier", text: "↑", onclick: function () { move(i, -1); } });
+      var down = el("button", { type: "button", "class": "icon", title: "Move later", text: "↓", onclick: function () { move(i, 1); } });
+      up.disabled = i === 0;
+      down.disabled = i === state.shows.length - 1;
+      var tryIt = el("button", { type: "button", text: "Try on TV", onclick: function () { tryOnTv(s); } });
+      var remove = el("button", { type: "button", text: "Remove", onclick: function () {
+        state.shows.splice(i, 1); render(); save();
+      }});
+      var side = el("div", { "class": "side" }, [el("div", { "class": "row" }, [up, down]), tryIt, remove]);
+
+      list.appendChild(el("div", { "class": "show" }, [posterBox(s), fields, side]));
+    });
+  }
+
+  function move(i, by) {
+    var s = state.shows.splice(i, 1)[0];
+    state.shows.splice(i + by, 0, s);
+    render();
+    save();
+  }
+
+  function queueSave(rerender) {
+    status("Saving…");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () { save(rerender); }, 700);
+  }
+
+  function save(rerender) {
+    clearTimeout(saveTimer);
+    status("Saving…");
+    var body = state.shows.map(function (s) {
+      return { id: s.id, title: s.title, app: s.app, link: s.link, poster: s.poster };
+    });
+    return api("PUT", "api/shows", body).then(function (fresh) {
+      // Keep what's being typed; take the TV's verdict on each link.
+      var byId = {};
+      fresh.shows.forEach(function (f) { byId[f.id] = f; });
+      state.shows.forEach(function (s) {
+        var f = byId[s.id];
+        if (f) { s.opens = f.opens; s.hasPoster = f.hasPoster; }
+      });
+      document.querySelectorAll(".opens").forEach(function (e, i) {
+        var s = state.shows[i];
+        if (s) { e.textContent = s.opens || ""; e.className = "opens " + opensClass(s.opens || ""); }
+      });
+      if (rerender) render();
+      status("Saved to the TV");
+    }).catch(function (e) { status("Couldn't reach the TV (" + e.message + "). Is it on?", true); });
+  }
+
+  function tryOnTv(s) {
+    save().then(function () {
+      return api("POST", "api/open?id=" + encodeURIComponent(s.id));
+    }).then(function () { status("Opening " + s.title + " on the TV"); })
+      .catch(function (e) { status("Couldn't open it (" + e.message + ")", true); });
+  }
+
+  function add(title, poster) {
+    var s = { id: uid(), title: title, app: (state.apps.filter(function (a) { return a.installed; })[0] || {}).key || "youtube",
+      link: "", poster: poster || "", opens: "", hasPoster: false };
+    state.shows.push(s);
+    render();
+    save(true);
+    var rows = document.querySelectorAll(".show");
+    var last = rows[rows.length - 1];
+    if (last) {
+      last.scrollIntoView({ behavior: "smooth", block: "center" });
+      last.querySelector("select").focus();
+    }
+  }
+
+  $("searchForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var q = $("q").value.trim();
+    if (!q) return;
+    var out = $("results");
+    out.innerHTML = "";
+    status("Searching…");
+    api("GET", "api/search?q=" + encodeURIComponent(q)).then(function (hits) {
+      status(hits.length ? "Pick a show to add it" : "No matches. Use “Add without searching” instead.");
+      hits.forEach(function (h) {
+        var p = el("div", { "class": "poster", text: h.title });
+        if (h.thumb) { p.style.backgroundImage = "url(\"" + h.thumb + "\")"; p.textContent = ""; }
+        out.appendChild(el("div", { "class": "result", title: "Add " + h.title, onclick: function () {
+          out.innerHTML = "";
+          $("q").value = "";
+          add(h.title, h.poster);
+        }}, [p, el("div", { "class": "t", text: h.title }), el("div", { "class": "m", text: [h.year, h.network].filter(Boolean).join(" · ") })]));
+      });
+    }).catch(function (e) { status("Search failed (" + e.message + ")", true); });
+  });
+
+  $("addBlank").addEventListener("click", function () {
+    var q = $("q").value.trim();
+    add(q || "New show", "");
+    $("q").value = "";
+  });
+
+  api("GET", "api/shows").then(function (s) {
+    state = s;
+    render();
+    status("Connected to CleanFrame " + (s.version || ""));
+  }).catch(function (e) { status("Couldn't reach the TV (" + e.message + "). Is it on?", true); });
+})();
+</script>
+</body>
+</html>

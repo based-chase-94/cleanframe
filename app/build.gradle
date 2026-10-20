@@ -11,8 +11,8 @@ android {
         // Fire OS 7 is Android 9 (API 28). Target it directly; nothing here goes to an app store.
         minSdk 25
         targetSdk 28
-        versionCode 10
-        versionName '1.0.9'
+        versionCode 11
+        versionName '1.0.10'
     }
 
     // One shared key so APKs built on the Mac and in CI can upgrade each other in place.

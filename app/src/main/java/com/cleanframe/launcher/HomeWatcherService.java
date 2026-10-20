@@ -98,6 +98,8 @@ public class HomeWatcherService extends AccessibilityService {
 
     @Override protected void onServiceConnected() {
         super.onServiceConnected();
+        // This service keeps CleanFrame running, so the bookmarks page stays reachable.
+        BookmarkServer.start(this);
         applyKeyFilter();
         Log.i(TAG, "service connected, key filter " + Prefs.homeKeyIntercept(this));
     }

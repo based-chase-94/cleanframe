@@ -66,7 +66,9 @@ public class ForYouActivity extends IdleActivity {
         titleLp.setMargins(Ui.dp(this, 64), Ui.dp(this, 34), 0, 0);
         root.addView(title, titleLp);
 
-        TextView hint = Ui.text(this, "Menu ☰ to change shows", 18, Ui.serifItalic(this), Color.argb(150, 255, 255, 255));
+        String address = BookmarkServer.address();
+        TextView hint = Ui.text(this, address == null ? "Menu ☰ to change shows"
+                : "Change shows from your Mac at " + address.substring("http://".length()), 18, Ui.serifItalic(this), Color.argb(150, 255, 255, 255));
         Ui.shadow(hint);
         FrameLayout.LayoutParams hintLp = wrap(Gravity.TOP | Gravity.END);
         hintLp.setMargins(0, Ui.dp(this, 52), Ui.dp(this, 64), 0);
@@ -106,6 +108,15 @@ public class ForYouActivity extends IdleActivity {
         super.onResume();
         apps = AppCatalog.load(this);
         build();
+        // Edits from the Mac show up here straight away.
+        Shows.setOnChange(new Runnable() {
+            @Override public void run() { build(); }
+        });
+    }
+
+    @Override protected void onPause() {
+        Shows.setOnChange(null);
+        super.onPause();
     }
 
     @Override public boolean onKeyDown(int keyCode, KeyEvent event) {

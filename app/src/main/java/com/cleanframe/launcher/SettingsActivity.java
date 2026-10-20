@@ -99,6 +99,12 @@ public class SettingsActivity extends IdleActivity {
         }, new Runnable() {
             @Override public void run() { startActivity(new Intent(SettingsActivity.this, ForYouEditorActivity.class)); }
         }));
+        rows.add(new Row("Edit shows from your Mac", new Value() {
+            @Override public String get() {
+                String a = BookmarkServer.address();
+                return a == null ? "Not connected" : a;
+            }
+        }, null));
         rows.add(new Row("Open For You", null, new Runnable() {
             @Override public void run() { startActivity(new Intent(SettingsActivity.this, ForYouActivity.class)); }
         }));
