@@ -2,6 +2,7 @@ package com.cleanframe.launcher;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
@@ -13,6 +14,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
+import android.widget.FrameLayout;
 
 /**
  * Fire OS always routes Home to the Amazon launcher and won't let another app be the default.
@@ -20,26 +22,39 @@ import android.view.accessibility.AccessibilityEvent;
  * Two routes, whichever this Fire OS build allows:
  * <ol>
  * <li>Catch the Home key itself, so the press never reaches the system. Holding Home opens
- *     Fire TV settings, since the Amazon long-press menu can't be reached that way.</li>
- * <li>Watch for the Amazon home screen. After the system handles a Home press, Android holds
- *     back activity starts from background apps for about five seconds. So the service covers
- *     the Amazon screen at once with an overlay showing the current artwork (accessibility
- *     overlays need no activity start), then keeps asking for CleanFrame until it is in front.</li>
+ *     Fire TV settings, since the Amazon long-press menu can't be reached that way.
+ *     (Fire OS 7.7 on the TCL 65S450F does not pass Home to accessibility services.)</li>
+ * <li>Watch for the Amazon home screen. After the system handles a Home press, Android queues
+ *     activity starts from background apps for five seconds. So the service covers the Amazon
+ *     screen at once with a working copy of the CleanFrame home screen (accessibility overlays
+ *     need no activity start). Choosing an app there queues its launch, which runs when the
+ *     five seconds are up; the cover goes away once the real home screen is in front.</li>
  * </ol>
  */
 public class HomeWatcherService extends AccessibilityService {
     private static final String TAG = "CleanFrameHome";
     private static final String[] AMAZON_LAUNCHERS = {"com.amazon.tv.launcher", "com.amazon.firetv.launcher"};
     private static final String[] FIRE_SETTINGS = {"com.amazon.tv.settings.v2", "com.amazon.tv.settings"};
-    private static final long RETRY_MS = 1000;
-    private static final long GIVE_UP_MS = 9000;
+    /** One more start if the queued one hasn't landed a little after Android's 5 s hold. */
+    private static final long RETRY_MS = 6500;
+    private static final long GIVE_UP_MS = 12000;
 
     private static HomeWatcherService running;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean homeLongPressed;
     private long redirectStarted;
+    /** Amazon home windows are ignored until then, after an app was chosen on the cover. */
+    private long quietUntil;
     private View cover;
+
+    private final Runnable coverTimeout = new Runnable() {
+        @Override public void run() {
+            Log.w(TAG, "cover timed out");
+            cancelRedirect();
+            removeCover();
+        }
+    };
 
     private final Runnable retry = new Runnable() {
         @Override public void run() {
@@ -67,7 +82,7 @@ public class HomeWatcherService extends AccessibilityService {
 
     /** HomeActivity calls this when it comes to the front, so the cover can go. */
     static void onHomeShown() {
-        if (running != null && running.redirectStarted != 0) running.finishRedirect();
+        if (running != null && (running.redirectStarted != 0 || running.cover != null)) running.finishRedirect();
     }
 
     @Override public void onCreate() {
@@ -99,8 +114,15 @@ public class HomeWatcherService extends AccessibilityService {
         if (event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return;
         CharSequence pkg = event.getPackageName();
         CharSequence cls = event.getClassName();
-        if (pkg == null || !isAmazonLauncher(pkg.toString())) return;
+        if (pkg == null) return;
         String className = cls == null ? "" : cls.toString();
+        if (cover != null && isOtherScreen(pkg.toString(), className)) {
+            // Whatever was queued from the cover has arrived.
+            Log.i(TAG, "in front: " + pkg + "/" + className);
+            finishRedirect();
+            return;
+        }
+        if (!isAmazonLauncher(pkg.toString())) return;
         Log.i(TAG, "Amazon launcher window: " + className);
         // Remembered so Settings can show which Amazon screen appeared, for troubleshooting.
         Prefs.setLastAmazonScreen(this, className);
@@ -145,8 +167,16 @@ public class HomeWatcherService extends AccessibilityService {
                 || className.endsWith("LauncherActivity");
     }
 
+    /** An app's screen, or one of CleanFrame's own; not the Amazon launcher, nor the cover itself. */
+    private boolean isOtherScreen(String pkg, String className) {
+        if (isAmazonLauncher(pkg)) return false;
+        if (pkg.equals(getPackageName())) return className.startsWith(pkg + ".") && className.endsWith("Activity");
+        return !pkg.equals("android") && !pkg.equals("com.android.systemui");
+    }
+
     private void redirect(boolean coverAmazon) {
         if (redirectStarted != 0) return;  // Already on it.
+        if (SystemClock.elapsedRealtime() < quietUntil) return;
         redirectStarted = SystemClock.elapsedRealtime();
         Log.i(TAG, "opening CleanFrame" + (coverAmazon ? " over Amazon home" : ""));
         if (coverAmazon) showCover();
@@ -154,8 +184,21 @@ public class HomeWatcherService extends AccessibilityService {
         handler.postDelayed(retry, RETRY_MS);
     }
 
+    /** Stops the retries, e.g. after something was chosen on the cover. */
+    private void cancelRedirect() {
+        handler.removeCallbacks(retry);
+        redirectStarted = 0;
+    }
+
+    /** Something was chosen on the cover: let its queued launch land, then uncover. */
+    private void chosenOnCover() {
+        cancelRedirect();
+        quietUntil = SystemClock.elapsedRealtime() + 7000;
+    }
+
     private void finishRedirect() {
         handler.removeCallbacks(retry);
+        handler.removeCallbacks(coverTimeout);
         redirectStarted = 0;
         // Give the home screen a moment to draw before uncovering it.
         handler.postDelayed(new Runnable() {
@@ -175,31 +218,46 @@ public class HomeWatcherService extends AccessibilityService {
     }
 
     /**
-     * A full-screen overlay with the current artwork, shown over the Amazon home screen until
-     * CleanFrame arrives. It takes key focus so presses don't land on the hidden Amazon screen;
+     * A full-screen overlay copy of the home screen, shown over the Amazon home screen until
+     * CleanFrame arrives. It takes key focus so presses don't land on the hidden Amazon screen.
      * Back removes it as an escape hatch.
      */
     private void showCover() {
         if (cover != null) return;
-        final ArtCanvasView art = new ArtCanvasView(this);
-        art.setFocusable(true);
-        art.setFocusableInTouchMode(true);
-        art.setOnKeyListener(new View.OnKeyListener() {
-            @Override public boolean onKey(View v, int keyCode, KeyEvent e) {
-                if (keyCode == KeyEvent.KEYCODE_BACK && e.getAction() == KeyEvent.ACTION_UP) {
-                    handler.removeCallbacks(retry);
-                    redirectStarted = 0;
-                    removeCover();
-                }
-                return true;
+        final Context ctx = this;
+        final HomeScreen screen = new HomeScreen(ctx, new HomeScreen.Actions() {
+            @Override public void onApp(AppCatalog.AppEntry app) {
+                // Queued by Android behind the home screen, so the app ends up in front.
+                chosenOnCover();
+                AppCatalog.launch(ctx, app.pkg, app.label);
             }
+            @Override public void onArtMode() { open(ArtModeActivity.class); }
+            @Override public void onAllApps() { open(AllAppsActivity.class); }
+            @Override public void onSettings() { open(SettingsActivity.class); }
+            @Override public void onAddApps() { open(HomeEditorActivity.class); }
         });
+        FrameLayout root = new FrameLayout(ctx) {
+            @Override public boolean dispatchKeyEvent(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+                    if (e.getAction() == KeyEvent.ACTION_UP) {
+                        cancelRedirect();
+                        removeCover();
+                    }
+                    return true;
+                }
+                return super.dispatchKeyEvent(e);
+            }
+        };
+        root.addView(screen, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        screen.bindApps(HomeScreen.homeApps(ctx), null);
+
         ArtRepository repo = ArtRepository.get(this);
-        ArtRepository.Artwork a = repo.find(Prefs.homeArtId(this));
+        final ArtRepository.Artwork a = repo.find(Prefs.homeArtId(this));
         if (a != null && Prefs.homeBackgroundArt(this)) {
             repo.loadBitmap(a, new ArtRepository.BitmapCallback() {
                 @Override public void onBitmap(Bitmap b) {
-                    if (b != null && cover == art) art.setArtwork(b, false);
+                    if (b != null && cover != null) screen.showArtwork(a, b, false);
                 }
             });
         }
@@ -208,15 +266,23 @@ public class HomeWatcherService extends AccessibilityService {
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 PixelFormat.OPAQUE);
         try {
-            ((WindowManager) getSystemService(WINDOW_SERVICE)).addView(art, lp);
-            cover = art;
-            art.requestFocus();
+            ((WindowManager) getSystemService(WINDOW_SERVICE)).addView(root, lp);
+            cover = root;
+            screen.focusFirst();
+            handler.postDelayed(coverTimeout, GIVE_UP_MS);
         } catch (Exception e) {
             Log.w(TAG, "could not show cover", e);
         }
     }
 
+    /** Starts one of CleanFrame's screens from the cover; it is queued like the home screen. */
+    private void open(Class<?> activity) {
+        chosenOnCover();
+        startActivity(new Intent(this, activity).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    }
+
     private void removeCover() {
+        handler.removeCallbacks(coverTimeout);
         if (cover == null) return;
         try {
             ((WindowManager) getSystemService(WINDOW_SERVICE)).removeView(cover);
