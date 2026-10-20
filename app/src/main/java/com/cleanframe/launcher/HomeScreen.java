@@ -11,7 +11,6 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextClock;
 import android.widget.TextView;
 
@@ -33,18 +32,34 @@ final class HomeScreen extends FrameLayout {
         void onAddApps();
     }
 
-    /** Where the app list starts and stops, in dp, so up to seven names fit without scrolling. */
-    private static final int LIST_TOP = 112;
-    private static final int LIST_PAD_TOP = 12;
-    private static final int LIST_PAD_BOTTOM = 36;
-    private static final float MAX_NAME_SP = 60;
+    /**
+     * The app list shows five rows, takes this share of the screen height, and is centred
+     * vertically. Rows past the fifth scroll; the row at either edge fades out when there's
+     * more beyond it.
+     */
+    private static final float LIST_HEIGHT = 0.55f;
+    private static final int VISIBLE_ROWS = 5;
 
     final ArtCanvasView background;
     private final TextView credit;
+    private final FadeScrollView scroll;
     private final LinearLayout list;
     private final ImageView artButton;
     private final ImageView appsButton;
     private final ImageView settingsButton;
+    private final TextView weatherDot;
+    private final ImageView weatherIcon;
+    private final TextView weatherTemp;
+    /** Re-checks the weather while this screen is up; the fetch itself only runs when it's due. */
+    private final Runnable weatherTick = new Runnable() {
+        @Override public void run() {
+            showWeather();
+            Weather.refresh(getContext(), new Runnable() {
+                @Override public void run() { showWeather(); }
+            });
+            postDelayed(this, 5 * 60_000L);
+        }
+    };
     private final Actions actions;
     /**
      * The last painting either copy of the home screen decoded. The Home-button cover decodes
@@ -56,8 +71,10 @@ final class HomeScreen extends FrameLayout {
 
     /** The painting on screen now, or null. */
     private String shownArtId;
-    /** App name size for the current list, in sp. */
-    private float nameSp = MAX_NAME_SP;
+    /** Height of one app row, in px. */
+    private final int rowHeight;
+    /** App name size, in sp. */
+    private final float nameSp;
 
     HomeScreen(Context c, Actions a) {
         super(c);
@@ -82,9 +99,32 @@ final class HomeScreen extends FrameLayout {
         clock.setTypeface(Ui.serif(c));
         clock.setTextColor(Color.WHITE);
         Ui.shadow(clock);
-        LayoutParams clockLp = wrap(Gravity.TOP | Gravity.START);
-        clockLp.setMargins(Ui.dp(c, 64), Ui.dp(c, 34), 0, 0);
-        addView(clock, clockLp);
+
+        // Clock · weather icon · temperature, on one line.
+        LinearLayout timeLine = new LinearLayout(c);
+        timeLine.setOrientation(LinearLayout.HORIZONTAL);
+        timeLine.setGravity(Gravity.CENTER_VERTICAL);
+        timeLine.addView(clock);
+        weatherDot = Ui.text(c, "\u00b7", 48, Ui.serif(c), Color.argb(170, 255, 255, 255));
+        Ui.shadow(weatherDot);
+        LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        dotLp.leftMargin = Ui.dp(c, 14);
+        dotLp.rightMargin = Ui.dp(c, 14);
+        timeLine.addView(weatherDot, dotLp);
+        weatherIcon = new ImageView(c);
+        weatherIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        int iconSize = Ui.dp(c, 42);
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(iconSize, iconSize);
+        iconLp.rightMargin = Ui.dp(c, 8);
+        timeLine.addView(weatherIcon, iconLp);
+        weatherTemp = Ui.text(c, "", 48, Ui.serif(c), Color.WHITE);
+        Ui.shadow(weatherTemp);
+        timeLine.addView(weatherTemp);
+        LayoutParams timeLp = wrap(Gravity.TOP | Gravity.START);
+        timeLp.setMargins(Ui.dp(c, 64), Ui.dp(c, 34), 0, 0);
+        addView(timeLine, timeLp);
+        showWeather();
 
         LinearLayout controls = new LinearLayout(c);
         controls.setOrientation(LinearLayout.HORIZONTAL);
@@ -110,15 +150,20 @@ final class HomeScreen extends FrameLayout {
         controlsLp.setMargins(0, Ui.dp(c, 32), Ui.dp(c, 56), 0);
         addView(controls, controlsLp);
 
-        ScrollView scroll = new ScrollView(c);
+        // Exactly five rows tall. The fades are one row deep and only show where more rows
+        // are hidden, and ScrollView keeps the focused row clear of them as it scrolls.
+        rowHeight = rowHeight(c);
+        nameSp = nameSize(c, rowHeight);
+        scroll = new FadeScrollView(c);
         scroll.setVerticalScrollBarEnabled(false);
-        scroll.setClipToPadding(false);
-        scroll.setPadding(0, Ui.dp(c, LIST_PAD_TOP), 0, Ui.dp(c, LIST_PAD_BOTTOM));
+        scroll.setOverScrollMode(OVER_SCROLL_NEVER);
+        scroll.setFade(rowHeight);
         list = new LinearLayout(c);
         list.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(list, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        LayoutParams scrollLp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        scrollLp.setMargins(Ui.dp(c, 48), Ui.dp(c, LIST_TOP), 0, 0);
+        LayoutParams scrollLp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, rowHeight * VISIBLE_ROWS,
+                Gravity.CENTER_VERTICAL | Gravity.START);
+        scrollLp.leftMargin = Ui.dp(c, 48);
         addView(scroll, scrollLp);
 
         credit = Ui.text(c, "", 16, Ui.serifItalic(c), Color.argb(190, 255, 255, 255));
@@ -128,6 +173,34 @@ final class HomeScreen extends FrameLayout {
         LayoutParams creditLp = wrap(Gravity.BOTTOM | Gravity.END);
         creditLp.setMargins(0, 0, Ui.dp(c, 56), Ui.dp(c, 28));
         addView(credit, creditLp);
+    }
+
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        refreshWeather();
+    }
+
+    /** Shows the saved weather now and fetches new conditions if they're due. */
+    void refreshWeather() {
+        removeCallbacks(weatherTick);
+        weatherTick.run();
+    }
+
+    @Override protected void onDetachedFromWindow() {
+        removeCallbacks(weatherTick);
+        super.onDetachedFromWindow();
+    }
+
+    /** Shows the latest weather beside the clock, or nothing if there's no recent reading. */
+    void showWeather() {
+        Weather.Now w = Weather.current(getContext());
+        int v = w == null ? GONE : VISIBLE;
+        weatherDot.setVisibility(v);
+        weatherIcon.setVisibility(v);
+        weatherTemp.setVisibility(v);
+        if (w == null) return;
+        weatherIcon.setImageResource(w.icon);
+        weatherTemp.setText(w.fahrenheit + "\u00b0");
     }
 
     /** The apps on Home, in order, skipping any that are no longer installed. */
@@ -184,11 +257,10 @@ final class HomeScreen extends FrameLayout {
     /** Rebuilds the list and focuses {@code focusPkg}, or the first row. */
     void bindApps(List<AppCatalog.AppEntry> apps, String focusPkg) {
         list.removeAllViews();
-        nameSp = nameSize(Math.max(apps.size(), 4));
         View focusTarget = null;
         for (AppCatalog.AppEntry app : apps) {
             View row = appRow(app);
-            list.addView(row);
+            list.addView(row, rowParams());
             if (app.pkg.equals(focusPkg)) focusTarget = row;
         }
         if (list.getChildCount() == 0) {
@@ -197,7 +269,7 @@ final class HomeScreen extends FrameLayout {
             row.setOnClickListener(new OnClickListener() {
                 @Override public void onClick(View v) { actions.onAddApps(); }
             });
-            list.addView(row);
+            list.addView(row, rowParams());
         }
 
         View first = list.getChildAt(0);
@@ -209,7 +281,12 @@ final class HomeScreen extends FrameLayout {
     }
 
     void focusFirst() {
+        scroll.scrollTo(0, 0);
         if (list.getChildCount() > 0) list.getChildAt(0).requestFocus();
+    }
+
+    private LinearLayout.LayoutParams rowParams() {
+        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, rowHeight);
     }
 
     void showArtwork(ArtRepository.Artwork a, Bitmap b, boolean animate) {
@@ -266,29 +343,23 @@ final class HomeScreen extends FrameLayout {
     private TextView rowLabel(String label) {
         TextView name = Ui.text(getContext(), label, nameSp, Ui.serif(getContext()), Color.WHITE);
         name.setSingleLine(true);
-        int pad = Ui.dp(getContext(), nameSp * NAME_PAD);
-        name.setPadding(0, pad, 0, pad);
         Ui.shadow(name);
         return name;
     }
 
-    /** Space above and below each name, as a fraction of its size; Instrument Serif lines are 1.3 tall. */
-    private static final float NAME_PAD = 0.06f;
-
-    /** The largest name size at which {@code rows} names fit between the clock and the bottom edge. */
-    private float nameSize(int rows) {
-        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-        float screenDp = dm.heightPixels / dm.density;
-        float rowDp = (screenDp - LIST_TOP - LIST_PAD_TOP - LIST_PAD_BOTTOM) / rows;
-        float sp = rowDp / (1.3f + 2 * NAME_PAD) * dm.density / dm.scaledDensity;
-        return Math.min(MAX_NAME_SP, sp);
+    private static int rowHeight(Context c) {
+        return Math.round(c.getResources().getDisplayMetrics().heightPixels * LIST_HEIGHT / VISIBLE_ROWS);
     }
 
-    /** The "type" focus style: the focused name is bright and nudged right, the rest recede. */
+    /** The largest name size that fits a row with a little air; Instrument Serif lines are 1.3 tall. */
+    private static float nameSize(Context c, int rowPx) {
+        return rowPx / 1.42f / c.getResources().getDisplayMetrics().scaledDensity;
+    }
+
+    /** The "type" focus style: the focused row is fully bright, the rest recede. Nothing moves. */
     private void styleFocus(View row, boolean focused) {
         row.animate()
                 .alpha(focused ? 1f : 0.55f)
-                .translationX(focused ? Ui.dp(getContext(), 14) : 0)
                 .setDuration(160)
                 .start();
     }

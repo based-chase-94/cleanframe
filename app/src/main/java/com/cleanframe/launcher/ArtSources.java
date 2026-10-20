@@ -180,7 +180,7 @@ final class ArtSources {
         return conn;
     }
 
-    private static String getString(String url) throws IOException {
+    static String getString(String url) throws IOException {
         HttpURLConnection conn = open(url);
         try (InputStream in = conn.getInputStream()) {
             ByteArrayOutputStream bos = new ByteArrayOutputStream();

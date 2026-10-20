@@ -28,6 +28,14 @@ public final class Prefs {
     private static final String HOME_ART_ID = "home_art_id";
     private static final String HOME_ART_SINCE = "home_art_since";
     private static final String SOURCE_PREFIX = "source_";
+    private static final String WEATHER_ON = "weather_on";
+    private static final String WEATHER_TEMP = "weather_temp";
+    private static final String WEATHER_CODE = "weather_code";
+    private static final String WEATHER_DAY = "weather_day";
+    private static final String WEATHER_AT = "weather_at";
+    private static final String LOCATION_LAT = "location_lat";
+    private static final String LOCATION_LON = "location_lon";
+    private static final String LOCATION_AT = "location_at";
 
     public static final String DISPLAY_FILL = "fill";
     public static final String DISPLAY_MATTE_LIGHT = "matte_light";
@@ -125,4 +133,28 @@ public final class Prefs {
 
     public static boolean sourceEnabled(Context c, String source) { return sp(c).getBoolean(SOURCE_PREFIX + source, true); }
     public static void setSourceEnabled(Context c, String source, boolean v) { sp(c).edit().putBoolean(SOURCE_PREFIX + source, v).apply(); }
+
+    public static boolean weatherOn(Context c) { return sp(c).getBoolean(WEATHER_ON, true); }
+    public static void setWeatherOn(Context c, boolean v) { sp(c).edit().putBoolean(WEATHER_ON, v).apply(); }
+
+    public static float weatherTemp(Context c) { return sp(c).getFloat(WEATHER_TEMP, 0); }
+    public static int weatherCode(Context c) { return sp(c).getInt(WEATHER_CODE, 0); }
+    public static boolean weatherDay(Context c) { return sp(c).getBoolean(WEATHER_DAY, true); }
+    /** Wall-clock time of the last successful weather fetch, or 0. */
+    public static long weatherAt(Context c) { return sp(c).getLong(WEATHER_AT, 0); }
+
+    public static void setWeather(Context c, float temp, int code, boolean day) {
+        sp(c).edit().putFloat(WEATHER_TEMP, temp).putInt(WEATHER_CODE, code).putBoolean(WEATHER_DAY, day)
+                .putLong(WEATHER_AT, System.currentTimeMillis()).apply();
+    }
+
+    /** Approximate location from the TV's internet address, used only for the weather. */
+    public static float locationLat(Context c) { return sp(c).getFloat(LOCATION_LAT, 0); }
+    public static float locationLon(Context c) { return sp(c).getFloat(LOCATION_LON, 0); }
+    public static long locationAt(Context c) { return sp(c).getLong(LOCATION_AT, 0); }
+
+    public static void setLocation(Context c, float lat, float lon) {
+        sp(c).edit().putFloat(LOCATION_LAT, lat).putFloat(LOCATION_LON, lon)
+                .putLong(LOCATION_AT, System.currentTimeMillis()).apply();
+    }
 }

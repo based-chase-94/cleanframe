@@ -67,8 +67,8 @@ public final class AppCatalog {
             {"crunchyroll", "com.crunchyroll.crunchyroid"},
     };
 
-    /** Home shows at most this many apps, so every name fits on screen at full size. */
-    public static final int HOME_MAX = 7;
+    /** Home holds at most this many apps; five show at a time and the rest scroll. */
+    public static final int HOME_MAX = 12;
 
     /** Defaults that Home already had before Tubi and Crunchyroll joined, see {@link #addNewDefaults}. */
     private static final String[] FIRST_DEFAULTS = {"youtube", "prime video", "hulu", "paramount"};

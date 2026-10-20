@@ -31,6 +31,7 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
         repo.addListener(this);
         repo.ensureStocked();
         screen.bindApps(HomeScreen.homeApps(this), focusedPkg);
+        screen.refreshWeather();
         refreshBackground(false, homePressed);
         homePressed = false;
     }

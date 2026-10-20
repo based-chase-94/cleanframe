@@ -2,9 +2,10 @@
 
 A custom home screen and Frame-style art mode for the TCL 65S450F (Fire TV Edition, Fire OS 7.7, Android 9). No root needed.
 
-- **Home**: up to seven big app names in Instrument Serif, each with a white cut-out logo, over full-screen artwork, clock top-left, and Art / All apps / Settings icons top-right. Home only launches apps.
+- **Home**: a scrolling list of up to twelve big app names (five on screen in a block 55% of the screen tall, centred vertically; the edge rows fade out hard when there's more beyond them) in Instrument Serif, each with a white cut-out logo, over full-screen artwork, clock top-left, and Art / All apps / Settings icons top-right. Home only launches apps.
 - **All apps**: every installed app. OK opens it; Menu (☰) or holding OK adds it to Home or removes it.
 - **Settings → Apps on Home**: a two-column editor. OK picks an app up, Up/Down moves it, OK places it. Right reaches Remove; the app moves to *Recently removed* and focus follows it, so a second OK puts it back where it was. Undo and Done are top-right. Changes save as you go.
+- **Weather**: beside the clock, a dot, an icon for the current conditions and the temperature in °F. The TV is located roughly from its internet address (ipwho.is, falling back to ipapi.co and geojs.io; refreshed daily, never shown) and the weather comes from [Open-Meteo](https://open-meteo.com) every 30 minutes. Readings older than 3 hours are hidden. Settings → Weather beside the clock turns it off.
 - **Home painting**: a new painting after every restart, every Home press, and whenever the art interval runs out.
 - **Art mode**: public-domain paintings from the Art Institute of Chicago, The Met and the Cleveland Museum of Art. It starts after a few idle minutes on Home (or from the picture icon). Left/Right step through works, Up/Down show the label, OK or Back go home. Around 40 works are kept on the TV so it also works offline. Choose full screen or a light or dark mat.
 - **Screensaver**: the same art as the system screensaver, so the TV shows paintings even when it goes idle inside another app.
@@ -53,6 +54,7 @@ Every build is signed with the key in `keystore/`, so a Mac build installs over 
 | --- | --- |
 | `HomeActivity`, `HomeScreen` | Home screen; `HomeScreen` is also the Home-button cover |
 | `AppLogos` | White logos for the Home list |
+| `Weather` | Location lookup, Open-Meteo fetch, condition icons (`wx_*` drawables) |
 | `AllAppsActivity` | All apps grid |
 | `SettingsActivity` | Settings list |
 | `HomeEditorActivity` | Apps on Home editor |
