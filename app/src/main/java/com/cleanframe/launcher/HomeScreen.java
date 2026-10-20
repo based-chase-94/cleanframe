@@ -44,8 +44,11 @@ final class HomeScreen extends FrameLayout {
     final ArtCanvasView background;
     private final TextView credit;
     private final TextView museum;
+    /** The icon row top right, in dp; the clock line matches it. */
+    private static final int CONTROL_TOP = 32;
+    private static final int CONTROL_SIZE = 52;
     /** Clock, divider and temperature size, in sp. */
-    private static final float TIME_SP = 40;
+    private static final float TIME_SP = 30;
     private final FadeScrollView scroll;
     private final LinearLayout list;
     private final ImageView forYouButton;
@@ -115,20 +118,22 @@ final class HomeScreen extends FrameLayout {
         Ui.shadow(weatherDot);
         LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        dotLp.leftMargin = Ui.dp(c, 14);
-        dotLp.rightMargin = Ui.dp(c, 14);
+        dotLp.leftMargin = Ui.dp(c, 10);
+        dotLp.rightMargin = Ui.dp(c, 10);
         timeLine.addView(weatherDot, dotLp);
         weatherIcon = new ImageView(c);
         weatherIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        int iconSize = Ui.dp(c, 36);
+        int iconSize = Ui.dp(c, 27);
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(iconSize, iconSize);
-        iconLp.rightMargin = Ui.dp(c, 8);
+        iconLp.rightMargin = Ui.dp(c, 6);
         timeLine.addView(weatherIcon, iconLp);
         weatherTemp = Ui.text(c, "", TIME_SP, Ui.light(c), Color.WHITE);
         Ui.shadow(weatherTemp);
         timeLine.addView(weatherTemp);
-        LayoutParams timeLp = wrap(Gravity.TOP | Gravity.START);
-        timeLp.setMargins(Ui.dp(c, 64), Ui.dp(c, 34), 0, 0);
+        // Same height and top as the icon row on the right, so the two share a centre line.
+        LayoutParams timeLp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(c, CONTROL_SIZE),
+                Gravity.TOP | Gravity.START);
+        timeLp.setMargins(Ui.dp(c, 64), Ui.dp(c, CONTROL_TOP), 0, 0);
         addView(timeLine, timeLp);
         showWeather();
 
@@ -138,7 +143,7 @@ final class HomeScreen extends FrameLayout {
         artButton = Ui.iconButton(c, R.drawable.ic_art, "Art mode");
         appsButton = Ui.iconButton(c, R.drawable.ic_apps, "All apps");
         settingsButton = Ui.iconButton(c, R.drawable.ic_settings, "Settings");
-        int size = Ui.dp(c, 52);
+        int size = Ui.dp(c, CONTROL_SIZE);
         for (ImageView b : buttons()) {
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
             lp.leftMargin = Ui.dp(c, 10);
@@ -157,7 +162,7 @@ final class HomeScreen extends FrameLayout {
             @Override public void onClick(View v) { actions.onSettings(); }
         });
         LayoutParams controlsLp = wrap(Gravity.TOP | Gravity.END);
-        controlsLp.setMargins(0, Ui.dp(c, 32), Ui.dp(c, 56), 0);
+        controlsLp.setMargins(0, Ui.dp(c, CONTROL_TOP), Ui.dp(c, 56), 0);
         addView(controls, controlsLp);
 
         // Exactly five rows tall. The fades are one row deep and only show where more rows
