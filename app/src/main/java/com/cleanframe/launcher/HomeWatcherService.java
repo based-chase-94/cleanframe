@@ -9,13 +9,18 @@ import android.view.accessibility.AccessibilityEvent;
 
 /**
  * Fire OS always routes Home to the Amazon launcher and won't let another app be the default.
- * This service watches for the Amazon home screen appearing and immediately opens CleanFrame
- * over it. Optionally it can also swallow the Home key itself, which avoids the brief flash of
- * the Amazon screen but disables the long-press Home menu.
+ *
+ * The main route is catching the Home key itself: the press never reaches the system, so
+ * CleanFrame opens straight away. Watching for the Amazon home screen is only a fallback,
+ * because once the system has handled a Home press Android holds back activity starts from
+ * background apps for about five seconds, and the redirect arrives late or not at all.
+ * Holding Home opens Fire TV settings, since the Amazon long-press menu can't be reached.
  */
 public class HomeWatcherService extends AccessibilityService {
     private static final String[] AMAZON_LAUNCHERS = {"com.amazon.tv.launcher", "com.amazon.firetv.launcher"};
+    private static final String[] FIRE_SETTINGS = {"com.amazon.tv.settings.v2", "com.amazon.tv.settings"};
     private long lastLaunch;
+    private boolean homeLongPressed;
 
     @Override protected void onServiceConnected() {
         super.onServiceConnected();
@@ -57,6 +62,7 @@ public class HomeWatcherService extends AccessibilityService {
         String className = cls == null ? "" : cls.toString();
         // Remembered so Settings can show which Amazon screen appeared, for troubleshooting.
         Prefs.setLastAmazonScreen(this, className);
+        android.util.Log.i("CleanFrameHome", "Amazon launcher window: " + className);
         if (!Prefs.homeCapture(this)) return;
         if (isHomeScreen(className) || Prefs.homeCaptureAllScreens(this)) goHome();
     }
@@ -64,8 +70,30 @@ public class HomeWatcherService extends AccessibilityService {
     @Override protected boolean onKeyEvent(KeyEvent event) {
         if (event.getKeyCode() != KeyEvent.KEYCODE_HOME) return false;
         if (!Prefs.homeCapture(this) || !Prefs.homeKeyIntercept(this)) return false;
-        if (event.getAction() == KeyEvent.ACTION_UP) goHome();
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            if (event.getRepeatCount() == 0) {
+                homeLongPressed = false;
+            } else if (!homeLongPressed && (event.isLongPress() || event.getRepeatCount() >= 5)) {
+                homeLongPressed = true;
+                openFireSettings();
+            }
+        } else if (event.getAction() == KeyEvent.ACTION_UP && !homeLongPressed) {
+            goHome();
+        }
         return true;
+    }
+
+    private void openFireSettings() {
+        for (String pkg : FIRE_SETTINGS) {
+            Intent i = getPackageManager().getLaunchIntentForPackage(pkg);
+            if (i == null) i = getPackageManager().getLeanbackLaunchIntentForPackage(pkg);
+            if (i != null) {
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+                return;
+            }
+        }
+        startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
     }
 
     @Override public void onInterrupt() {}
@@ -89,6 +117,7 @@ public class HomeWatcherService extends AccessibilityService {
         long now = SystemClock.elapsedRealtime();
         if (now - lastLaunch < 700) return;
         lastLaunch = now;
+        android.util.Log.i("CleanFrameHome", "opening CleanFrame");
         Intent i = new Intent(this, HomeActivity.class);
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(i);

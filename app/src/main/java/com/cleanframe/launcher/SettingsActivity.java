@@ -177,8 +177,8 @@ public class SettingsActivity extends IdleActivity {
                 Prefs.setHomeCapture(SettingsActivity.this, !Prefs.homeCapture(SettingsActivity.this));
             }
         }));
-        rows.add(new Row("Catch Home before Amazon shows", new Value() {
-            @Override public String get() { return Prefs.homeKeyIntercept(SettingsActivity.this) ? "On (no Home long-press menu)" : "Off"; }
+        rows.add(new Row("Catch the Home key directly", new Value() {
+            @Override public String get() { return Prefs.homeKeyIntercept(SettingsActivity.this) ? "On · hold Home for Fire settings" : "Off (slower, may miss)"; }
         }, new Runnable() {
             @Override public void run() {
                 Prefs.setHomeKeyIntercept(SettingsActivity.this, !Prefs.homeKeyIntercept(SettingsActivity.this));

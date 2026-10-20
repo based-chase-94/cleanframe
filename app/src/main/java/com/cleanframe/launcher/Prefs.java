@@ -97,7 +97,7 @@ public final class Prefs {
     public static boolean homeCapture(Context c) { return sp(c).getBoolean(HOME_CAPTURE, true); }
     public static void setHomeCapture(Context c, boolean v) { sp(c).edit().putBoolean(HOME_CAPTURE, v).apply(); }
 
-    public static boolean homeKeyIntercept(Context c) { return sp(c).getBoolean(HOME_KEY_INTERCEPT, false); }
+    public static boolean homeKeyIntercept(Context c) { return sp(c).getBoolean(HOME_KEY_INTERCEPT, true); }
     public static void setHomeKeyIntercept(Context c, boolean v) { sp(c).edit().putBoolean(HOME_KEY_INTERCEPT, v).apply(); }
 
     public static boolean homeCaptureAllScreens(Context c) { return sp(c).getBoolean(HOME_CAPTURE_ALL_SCREENS, false); }

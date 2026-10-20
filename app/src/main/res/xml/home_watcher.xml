@@ -5,4 +5,5 @@
     android:canRequestFilterKeyEvents="true"
     android:canRetrieveWindowContent="false"
     android:description="@string/home_watcher_description"
+    android:accessibilityFlags="flagRequestFilterKeyEvents"
     android:notificationTimeout="0" />
