@@ -189,7 +189,10 @@ final class HomeScreen extends FrameLayout {
         Ui.shadow(credit);
         credit.setGravity(Gravity.END);
         credit.setMaxWidth(Ui.dp(c, 420));
-        caption.addView(credit);
+        // Explicitly wrap_content: a vertical LinearLayout defaults children to match_parent,
+        // which squeezes this line to the museum line's width and clips the extra text.
+        caption.addView(credit, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         museum = Ui.text(c, "", 11, Ui.light(c), Color.argb(170, 255, 255, 255));
         Ui.shadow(museum);
         museum.setAllCaps(true);
