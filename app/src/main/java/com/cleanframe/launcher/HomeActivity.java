@@ -32,6 +32,10 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
     private ImageView settingsButton;
     private String focusedPkg;
     private ArtRepository repo;
+    private static boolean inFront;
+
+    /** True while the home screen is the resumed activity. */
+    static boolean isInFront() { return inFront; }
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -111,6 +115,8 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
 
     @Override protected void onResume() {
         super.onResume();
+        inFront = true;
+        HomeWatcherService.onHomeShown();
         repo.addListener(this);
         repo.ensureStocked();
         buildList();
@@ -118,6 +124,7 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
     }
 
     @Override protected void onPause() {
+        inFront = false;
         repo.removeListener(this);
         super.onPause();
     }

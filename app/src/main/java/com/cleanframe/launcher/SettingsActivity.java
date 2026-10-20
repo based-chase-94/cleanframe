@@ -190,6 +190,12 @@ public class SettingsActivity extends IdleActivity {
         }, new Runnable() {
             @Override public void run() { Prefs.setHomeCaptureAllScreens(SettingsActivity.this, !Prefs.homeCaptureAllScreens(SettingsActivity.this)); }
         }));
+        rows.add(new Row("Home key last reached CleanFrame", new Value() {
+            @Override public String get() {
+                long t = Prefs.homeKeySeen(SettingsActivity.this);
+                return t == 0 ? "Never" : android.text.format.DateUtils.getRelativeTimeSpanString(t).toString();
+            }
+        }, null));
         rows.add(new Row("Last Amazon screen seen", new Value() {
             @Override public String get() {
                 String s = Prefs.lastAmazonScreen(SettingsActivity.this);

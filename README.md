@@ -7,7 +7,7 @@ A custom home screen and Frame-style art mode for the TCL 65S450F (Fire TV Editi
 - **Settings → Apps on Home**: a two-column editor. OK picks an app up, Up/Down moves it, OK places it. Right reaches Remove; the app moves to *Recently removed* and focus follows it, so a second OK puts it back where it was. Undo and Done are top-right. Changes save as you go.
 - **Art mode**: public-domain paintings from the Art Institute of Chicago, The Met and the Cleveland Museum of Art. It starts after a few idle minutes on Home (or from the picture icon). Left/Right step through works, Up/Down show the label, OK or Back go home. Around 40 works are kept on the TV so it also works offline. Choose full screen or a light or dark mat.
 - **Screensaver**: the same art as the system screensaver, so the TV shows paintings even when it goes idle inside another app.
-- **Home button**: Fire OS always sends Home to the Amazon launcher. An accessibility service catches the Home key and opens CleanFrame instead; holding Home opens Fire TV settings. As a fallback it also watches for the Amazon home screen and opens CleanFrame over it.
+- **Home button**: Fire OS always sends Home to the Amazon launcher. An accessibility service catches the Home key and opens CleanFrame instead; holding Home opens Fire TV settings. If this Fire OS build doesn't pass the Home key on, the service watches for the Amazon home screen, covers it at once with the current artwork, and keeps asking for CleanFrame until Android lets it open (Android delays app launches for a few seconds after Home).
 
 Default Home apps are YouTube, Prime Video, WOW Presents Plus, Hulu and Paramount+, picked by name from what's installed.
 
@@ -27,7 +27,7 @@ adb shell settings put secure screensaver_enabled 1
 adb shell am start -n com.cleanframe.launcher/.HomeActivity
 ```
 
-If Home still lands on the Amazon screen, open CleanFrame **Settings → Home button**. *Last Amazon screen seen* shows the screen name the service saw. Make sure *Catch the Home key directly* is on. `adb logcat -s CleanFrameHome` shows what the service sees when you press Home.
+If Home still lands on the Amazon screen, open CleanFrame **Settings → Home button**. *Last Amazon screen seen* shows the screen name the service saw. *Home key last reached CleanFrame* shows whether the key filter works on this TV. `adb logcat -s CleanFrameHome` shows what the service sees when you press Home.
 
 ## Build on a Mac
 

@@ -23,6 +23,7 @@ public final class Prefs {
     private static final String HOME_KEY_INTERCEPT = "home_key_intercept";
     private static final String HOME_CAPTURE_ALL_SCREENS = "home_capture_all_screens";
     private static final String LAST_AMAZON_SCREEN = "last_amazon_screen";
+    private static final String HOME_KEY_SEEN = "home_key_seen";
     private static final String HOME_ART_ID = "home_art_id";
     private static final String HOME_ART_SINCE = "home_art_since";
     private static final String SOURCE_PREFIX = "source_";
@@ -105,6 +106,10 @@ public final class Prefs {
 
     public static String lastAmazonScreen(Context c) { return sp(c).getString(LAST_AMAZON_SCREEN, ""); }
     public static void setLastAmazonScreen(Context c, String v) { sp(c).edit().putString(LAST_AMAZON_SCREEN, v).apply(); }
+
+    /** Wall-clock time the Home key last reached the accessibility service, or 0. */
+    public static long homeKeySeen(Context c) { return sp(c).getLong(HOME_KEY_SEEN, 0); }
+    public static void setHomeKeySeen(Context c) { sp(c).edit().putLong(HOME_KEY_SEEN, System.currentTimeMillis()).apply(); }
 
     public static String homeArtId(Context c) { return sp(c).getString(HOME_ART_ID, ""); }
     public static long homeArtSince(Context c) { return sp(c).getLong(HOME_ART_SINCE, 0); }
