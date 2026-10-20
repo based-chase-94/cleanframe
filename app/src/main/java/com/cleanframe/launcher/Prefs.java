@@ -36,6 +36,8 @@ public final class Prefs {
     private static final String LOCATION_LAT = "location_lat";
     private static final String LOCATION_LON = "location_lon";
     private static final String LOCATION_AT = "location_at";
+    private static final String FOR_YOU_SHOWS = "for_you_shows";
+    private static final String ART_BLOCKED = "art_blocked";
 
     public static final String DISPLAY_FILL = "fill";
     public static final String DISPLAY_MATTE_LIGHT = "matte_light";
@@ -157,4 +159,12 @@ public final class Prefs {
         sp(c).edit().putFloat(LOCATION_LAT, lat).putFloat(LOCATION_LON, lon)
                 .putLong(LOCATION_AT, System.currentTimeMillis()).apply();
     }
+
+    /** The For You shows as JSON, or null if they've never been edited. */
+    public static String forYouShows(Context c) { return sp(c).getString(FOR_YOU_SHOWS, null); }
+    public static void setForYouShows(Context c, String json) { sp(c).edit().putString(FOR_YOU_SHOWS, json).apply(); }
+
+    /** Artwork ids removed from the bookmarks page; they're never downloaded again. */
+    public static List<String> artBlocked(Context c) { return getList(c, ART_BLOCKED); }
+    public static void setArtBlocked(Context c, List<String> ids) { putList(c, ART_BLOCKED, ids); }
 }
