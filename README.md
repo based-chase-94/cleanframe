@@ -2,7 +2,7 @@
 
 A custom home screen and Frame-style art mode for the TCL 65S450F (Fire TV Edition, Fire OS 7.7, Android 9). No root needed.
 
-- **Home**: a scrolling list of up to twelve big app names (five on screen, the edge rows fading out when there's more beyond them) in Instrument Serif, each with a white cut-out logo, over full-screen artwork, clock top-left, and Art / All apps / Settings icons top-right. Home only launches apps.
+- **Home**: a scrolling list of up to twelve big app names (five on screen in a block 55% of the screen tall, centred vertically; the edge rows fade out hard when there's more beyond them) in Instrument Serif, each with a white cut-out logo, over full-screen artwork, clock top-left, and Art / All apps / Settings icons top-right. Home only launches apps.
 - **All apps**: every installed app. OK opens it; Menu (☰) or holding OK adds it to Home or removes it.
 - **Settings → Apps on Home**: a two-column editor. OK picks an app up, Up/Down moves it, OK places it. Right reaches Remove; the app moves to *Recently removed* and focus follows it, so a second OK puts it back where it was. Undo and Done are top-right. Changes save as you go.
 - **Weather**: beside the clock, a dot, an icon for the current conditions and the temperature in °F. The TV is located roughly from its internet address (ipwho.is, falling back to ipapi.co and geojs.io; refreshed daily, never shown) and the weather comes from [Open-Meteo](https://open-meteo.com) every 30 minutes. Readings older than 3 hours are hidden. Settings → Weather beside the clock turns it off.

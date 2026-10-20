@@ -11,7 +11,6 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextClock;
 import android.widget.TextView;
 
@@ -34,17 +33,16 @@ final class HomeScreen extends FrameLayout {
     }
 
     /**
-     * The app list shows five rows between the clock and the bottom edge, in dp. Rows past
-     * the fifth scroll; the row at either edge fades out when there's more beyond it.
+     * The app list shows five rows, takes this share of the screen height, and is centred
+     * vertically. Rows past the fifth scroll; the row at either edge fades out when there's
+     * more beyond it.
      */
-    private static final int LIST_TOP = 124;
-    private static final int LIST_BOTTOM = 24;
+    private static final float LIST_HEIGHT = 0.55f;
     private static final int VISIBLE_ROWS = 5;
-    private static final float MAX_NAME_SP = 60;
 
     final ArtCanvasView background;
     private final TextView credit;
-    private final ScrollView scroll;
+    private final FadeScrollView scroll;
     private final LinearLayout list;
     private final ImageView artButton;
     private final ImageView appsButton;
@@ -152,20 +150,20 @@ final class HomeScreen extends FrameLayout {
         controlsLp.setMargins(0, Ui.dp(c, 32), Ui.dp(c, 56), 0);
         addView(controls, controlsLp);
 
-        // Exactly five rows tall. The fading edges are one row deep and only show where more
-        // rows are hidden, and ScrollView keeps the focused row clear of them as it scrolls.
+        // Exactly five rows tall. The fades are one row deep and only show where more rows
+        // are hidden, and ScrollView keeps the focused row clear of them as it scrolls.
         rowHeight = rowHeight(c);
         nameSp = nameSize(c, rowHeight);
-        scroll = new ScrollView(c);
+        scroll = new FadeScrollView(c);
         scroll.setVerticalScrollBarEnabled(false);
         scroll.setOverScrollMode(OVER_SCROLL_NEVER);
-        scroll.setVerticalFadingEdgeEnabled(true);
-        scroll.setFadingEdgeLength(rowHeight);
+        scroll.setFade(rowHeight);
         list = new LinearLayout(c);
         list.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(list, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        LayoutParams scrollLp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, rowHeight * VISIBLE_ROWS);
-        scrollLp.setMargins(Ui.dp(c, 48), Ui.dp(c, LIST_TOP), 0, 0);
+        LayoutParams scrollLp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, rowHeight * VISIBLE_ROWS,
+                Gravity.CENTER_VERTICAL | Gravity.START);
+        scrollLp.leftMargin = Ui.dp(c, 48);
         addView(scroll, scrollLp);
 
         credit = Ui.text(c, "", 16, Ui.serifItalic(c), Color.argb(190, 255, 255, 255));
@@ -349,17 +347,13 @@ final class HomeScreen extends FrameLayout {
         return name;
     }
 
-    /** Five rows fill the space between the clock and the bottom edge. */
     private static int rowHeight(Context c) {
-        android.util.DisplayMetrics dm = c.getResources().getDisplayMetrics();
-        int available = dm.heightPixels - Ui.dp(c, LIST_TOP) - Ui.dp(c, LIST_BOTTOM);
-        return available / VISIBLE_ROWS;
+        return Math.round(c.getResources().getDisplayMetrics().heightPixels * LIST_HEIGHT / VISIBLE_ROWS);
     }
 
     /** The largest name size that fits a row with a little air; Instrument Serif lines are 1.3 tall. */
     private static float nameSize(Context c, int rowPx) {
-        android.util.DisplayMetrics dm = c.getResources().getDisplayMetrics();
-        return Math.min(MAX_NAME_SP, rowPx / 1.42f / dm.scaledDensity);
+        return rowPx / 1.42f / c.getResources().getDisplayMetrics().scaledDensity;
     }
 
     /** The "type" focus style: the focused row is fully bright, the rest recede. Nothing moves. */
