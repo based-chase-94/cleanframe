@@ -33,14 +33,18 @@ final class HomeScreen extends FrameLayout {
         void onAddApps();
     }
 
-    /** Where the app list starts and stops, in dp, so up to seven names fit without scrolling. */
-    private static final int LIST_TOP = 112;
-    private static final int LIST_PAD_TOP = 12;
-    private static final int LIST_PAD_BOTTOM = 36;
+    /**
+     * The app list shows five rows between the clock and the bottom edge, in dp. Rows past
+     * the fifth scroll; the row at either edge fades out when there's more beyond it.
+     */
+    private static final int LIST_TOP = 124;
+    private static final int LIST_BOTTOM = 24;
+    private static final int VISIBLE_ROWS = 5;
     private static final float MAX_NAME_SP = 60;
 
     final ArtCanvasView background;
     private final TextView credit;
+    private final ScrollView scroll;
     private final LinearLayout list;
     private final ImageView artButton;
     private final ImageView appsButton;
@@ -69,8 +73,10 @@ final class HomeScreen extends FrameLayout {
 
     /** The painting on screen now, or null. */
     private String shownArtId;
-    /** App name size for the current list, in sp. */
-    private float nameSp = MAX_NAME_SP;
+    /** Height of one app row, in px. */
+    private final int rowHeight;
+    /** App name size, in sp. */
+    private final float nameSp;
 
     HomeScreen(Context c, Actions a) {
         super(c);
@@ -146,14 +152,19 @@ final class HomeScreen extends FrameLayout {
         controlsLp.setMargins(0, Ui.dp(c, 32), Ui.dp(c, 56), 0);
         addView(controls, controlsLp);
 
-        ScrollView scroll = new ScrollView(c);
+        // Exactly five rows tall. The fading edges are one row deep and only show where more
+        // rows are hidden, and ScrollView keeps the focused row clear of them as it scrolls.
+        rowHeight = rowHeight(c);
+        nameSp = nameSize(c, rowHeight);
+        scroll = new ScrollView(c);
         scroll.setVerticalScrollBarEnabled(false);
-        scroll.setClipToPadding(false);
-        scroll.setPadding(0, Ui.dp(c, LIST_PAD_TOP), 0, Ui.dp(c, LIST_PAD_BOTTOM));
+        scroll.setOverScrollMode(OVER_SCROLL_NEVER);
+        scroll.setVerticalFadingEdgeEnabled(true);
+        scroll.setFadingEdgeLength(rowHeight);
         list = new LinearLayout(c);
         list.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(list, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        LayoutParams scrollLp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        LayoutParams scrollLp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, rowHeight * VISIBLE_ROWS);
         scrollLp.setMargins(Ui.dp(c, 48), Ui.dp(c, LIST_TOP), 0, 0);
         addView(scroll, scrollLp);
 
@@ -248,11 +259,10 @@ final class HomeScreen extends FrameLayout {
     /** Rebuilds the list and focuses {@code focusPkg}, or the first row. */
     void bindApps(List<AppCatalog.AppEntry> apps, String focusPkg) {
         list.removeAllViews();
-        nameSp = nameSize(Math.max(apps.size(), 4));
         View focusTarget = null;
         for (AppCatalog.AppEntry app : apps) {
             View row = appRow(app);
-            list.addView(row);
+            list.addView(row, rowParams());
             if (app.pkg.equals(focusPkg)) focusTarget = row;
         }
         if (list.getChildCount() == 0) {
@@ -261,7 +271,7 @@ final class HomeScreen extends FrameLayout {
             row.setOnClickListener(new OnClickListener() {
                 @Override public void onClick(View v) { actions.onAddApps(); }
             });
-            list.addView(row);
+            list.addView(row, rowParams());
         }
 
         View first = list.getChildAt(0);
@@ -273,7 +283,12 @@ final class HomeScreen extends FrameLayout {
     }
 
     void focusFirst() {
+        scroll.scrollTo(0, 0);
         if (list.getChildCount() > 0) list.getChildAt(0).requestFocus();
+    }
+
+    private LinearLayout.LayoutParams rowParams() {
+        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, rowHeight);
     }
 
     void showArtwork(ArtRepository.Artwork a, Bitmap b, boolean animate) {
@@ -330,29 +345,27 @@ final class HomeScreen extends FrameLayout {
     private TextView rowLabel(String label) {
         TextView name = Ui.text(getContext(), label, nameSp, Ui.serif(getContext()), Color.WHITE);
         name.setSingleLine(true);
-        int pad = Ui.dp(getContext(), nameSp * NAME_PAD);
-        name.setPadding(0, pad, 0, pad);
         Ui.shadow(name);
         return name;
     }
 
-    /** Space above and below each name, as a fraction of its size; Instrument Serif lines are 1.3 tall. */
-    private static final float NAME_PAD = 0.06f;
-
-    /** The largest name size at which {@code rows} names fit between the clock and the bottom edge. */
-    private float nameSize(int rows) {
-        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-        float screenDp = dm.heightPixels / dm.density;
-        float rowDp = (screenDp - LIST_TOP - LIST_PAD_TOP - LIST_PAD_BOTTOM) / rows;
-        float sp = rowDp / (1.3f + 2 * NAME_PAD) * dm.density / dm.scaledDensity;
-        return Math.min(MAX_NAME_SP, sp);
+    /** Five rows fill the space between the clock and the bottom edge. */
+    private static int rowHeight(Context c) {
+        android.util.DisplayMetrics dm = c.getResources().getDisplayMetrics();
+        int available = dm.heightPixels - Ui.dp(c, LIST_TOP) - Ui.dp(c, LIST_BOTTOM);
+        return available / VISIBLE_ROWS;
     }
 
-    /** The "type" focus style: the focused name is bright and nudged right, the rest recede. */
+    /** The largest name size that fits a row with a little air; Instrument Serif lines are 1.3 tall. */
+    private static float nameSize(Context c, int rowPx) {
+        android.util.DisplayMetrics dm = c.getResources().getDisplayMetrics();
+        return Math.min(MAX_NAME_SP, rowPx / 1.42f / dm.scaledDensity);
+    }
+
+    /** The "type" focus style: the focused row is fully bright, the rest recede. Nothing moves. */
     private void styleFocus(View row, boolean focused) {
         row.animate()
                 .alpha(focused ? 1f : 0.55f)
-                .translationX(focused ? Ui.dp(getContext(), 14) : 0)
                 .setDuration(160)
                 .start();
     }
