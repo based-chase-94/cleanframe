@@ -32,9 +32,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A small web server on the home network so the For You shows can be edited from a computer:
- * open http://(TV address):8765 in a browser. The TV keeps the list; the page reads and writes
- * it here, so there is nothing to sync and nothing to install on the computer.
+ * A small web server on the home network so the For You shows and the saved artwork can be
+ * managed from a computer: open http://(TV address):8765 in a browser. The TV keeps both; the
+ * page reads and writes them here, so there is nothing to sync and nothing to install.
  *
  * Only devices on the local network are answered, and changes need a header a plain web form
  * can't send, so another website open in the browser can't edit the list.
@@ -203,6 +203,10 @@ final class BookmarkServer {
             json(out, 200, state().toString());
         } else if (get && p.startsWith("/poster/")) {
             poster(out, p.substring("/poster/".length()));
+        } else if (get && p.equals("/api/art")) {
+            json(out, 200, artState().toString());
+        } else if (get && p.equals("/api/art/image")) {
+            artImage(out, r.query.get("id"), "full".equals(r.query.get("size")));
         } else if (get && p.equals("/api/search")) {
             json(out, 200, search(r.query.get("q")).toString());
         } else if (!get && !"1".equals(r.headers.get("x-cleanframe"))) {
@@ -211,6 +215,26 @@ final class BookmarkServer {
         } else if ("PUT".equals(r.method) && p.equals("/api/shows")) {
             saveShows(new JSONArray(new String(r.body, "UTF-8")));
             json(out, 200, state().toString());
+        } else if ("POST".equals(r.method) && p.equals("/api/art/remove")) {
+            final String id = r.query.get("id");
+            ArtRepository.get(app).remove(id);
+            main.post(new Runnable() {
+                @Override public void run() { HomeActivity.homeArtChanged(); }
+            });
+            json(out, 200, artState().toString());
+        } else if ("POST".equals(r.method) && p.equals("/api/art/show")) {
+            final ArtRepository.Artwork a = ArtRepository.get(app).find(r.query.get("id"));
+            if (a == null) {
+                json(out, 404, "{}");
+                return;
+            }
+            main.post(new Runnable() {
+                @Override public void run() {
+                    Prefs.setHomeArt(app, a.id);
+                    HomeActivity.homeArtChanged();
+                }
+            });
+            json(out, 200, "{}");
         } else if ("POST".equals(r.method) && p.equals("/api/open")) {
             json(out, openOnTv(r.query.get("id")) ? 200 : 404, "{}");
         } else {
@@ -235,6 +259,35 @@ final class BookmarkServer {
                     .put("search", Shows.webSearch(a[0], "")));
         }
         return new JSONObject().put("shows", shows).put("apps", appList).put("version", versionName());
+    }
+
+    /** The saved artwork, newest first, with what the page needs to judge it behind the menu. */
+    private JSONObject artState() throws Exception {
+        ArtRepository repo = ArtRepository.get(app);
+        List<ArtRepository.Artwork> works = repo.all();
+        Collections.reverse(works);
+        JSONArray items = new JSONArray();
+        String onHome = Prefs.homeArtId(app);
+        for (ArtRepository.Artwork a : works) {
+            items.put(new JSONObject().put("id", a.id).put("title", a.title).put("artist", a.artist)
+                    .put("date", a.date).put("museum", a.museum).put("width", a.width).put("height", a.height)
+                    .put("onHome", a.id.equals(onHome)));
+        }
+        JSONArray home = new JSONArray();
+        for (AppCatalog.AppEntry e : HomeScreen.homeApps(app)) home.put(e.label);
+        return new JSONObject().put("items", items).put("fetching", repo.isFetching())
+                .put("error", repo.lastError()).put("removed", Prefs.artBlocked(app).size()).put("homeApps", home);
+    }
+
+    private void artImage(OutputStream out, String id, boolean full) throws IOException {
+        ArtRepository repo = ArtRepository.get(app);
+        ArtRepository.Artwork a = id == null ? null : repo.find(id);
+        File f = a == null ? null : full ? repo.file(a) : repo.thumbnail(a, 480);
+        if (f == null || !f.exists()) {
+            send(out, 404, "text/plain", new byte[0]);
+            return;
+        }
+        send(out, 200, "image/jpeg", readAll(new FileInputStream(f)));
     }
 
     private void saveShows(JSONArray a) throws Exception {

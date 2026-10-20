@@ -151,14 +151,72 @@ public final class ArtRepository {
         });
     }
 
+    /** Every work in the stash, oldest first. */
+    public synchronized List<Artwork> all() { return new ArrayList<>(items); }
+
+    /** The work's image file. */
+    public File file(Artwork a) { return new File(dir, a.file); }
+
+    /**
+     * A copy about {@code width} px wide, made once and kept beside the stash, for the
+     * bookmarks page's grid. Null if the image can't be read.
+     */
+    public synchronized File thumbnail(Artwork a, int width) {
+        File thumbs = new File(dir, "thumbs");
+        File t = new File(thumbs, width + "_" + a.file);
+        if (t.exists()) return t;
+        try {
+            BitmapFactory.Options o = new BitmapFactory.Options();
+            o.inSampleSize = 1;
+            int w = a.width > 0 ? a.width : MAX_WIDTH;
+            while (w / (o.inSampleSize * 2) >= width) o.inSampleSize *= 2;
+            Bitmap b = BitmapFactory.decodeFile(file(a).getAbsolutePath(), o);
+            if (b == null) return null;
+            thumbs.mkdirs();
+            try (OutputStream out = new FileOutputStream(t)) {
+                b.compress(Bitmap.CompressFormat.JPEG, 82, out);
+            }
+            b.recycle();
+            return t;
+        } catch (Exception e) {
+            Log.w(TAG, "thumbnail failed " + a.file, e);
+            return null;
+        }
+    }
+
+    /**
+     * Deletes a work and makes sure it never comes back, then fetches a replacement so the
+     * stash stays the same size.
+     */
+    public void remove(String id) {
+        int want;
+        synchronized (this) {
+            Artwork a = find(id);
+            if (a == null) return;
+            want = Math.max(TARGET, items.size());
+            List<String> blocked = Prefs.artBlocked(context);
+            if (!blocked.contains(id)) blocked.add(id);
+            Prefs.setArtBlocked(context, blocked);
+            recent.remove(id);
+            deleteFiles(a);
+            items.remove(a);
+            saveIndex();
+        }
+        topUp(want);
+    }
+
     /** Starts a background top-up if the stash is short. Safe to call often. */
     public void ensureStocked() {
-        if (fetching || count() >= TARGET) return;
+        topUp(TARGET);
+    }
+
+    private void topUp(final int want) {
+        if (fetching || count() >= want) return;
         fetching = true;
         fetcher.execute(new Runnable() {
             @Override public void run() {
                 try {
-                    fetchRound();
+                    fetchRound(want);
                 } finally {
                     fetching = false;
                 }
@@ -171,7 +229,7 @@ public final class ArtRepository {
         fetcher.execute(new Runnable() {
             @Override public void run() {
                 synchronized (ArtRepository.this) {
-                    for (Artwork a : items) new File(dir, a.file).delete();
+                    for (Artwork a : items) deleteFiles(a);
                     items.clear();
                     recent.clear();
                     saveIndex();
@@ -182,7 +240,7 @@ public final class ArtRepository {
         ensureStocked();
     }
 
-    private void fetchRound() {
+    private void fetchRound(int want) {
         List<String> sources = new ArrayList<>();
         for (String s : ArtSources.ALL) if (Prefs.sourceEnabled(context, s)) sources.add(s);
         if (sources.isEmpty()) {
@@ -191,14 +249,16 @@ public final class ArtRepository {
         }
         int failures = 0;
         // Round-robin across museums so the stash is a mix, a handful at a time.
-        while (count() < TARGET && failures < sources.size() * 2) {
+        List<String> blocked = Prefs.artBlocked(context);
+        while (count() < want && failures < sources.size() * 2) {
             Collections.shuffle(sources, rnd);
             boolean gotAny = false;
             for (String source : sources) {
-                if (count() >= TARGET) break;
+                if (count() >= want) break;
                 try {
                     for (ArtSources.Candidate c : ArtSources.fetch(source, rnd, 4)) {
-                        if (find(c.source + ":" + c.id) != null) continue;
+                        String id = c.source + ":" + c.id;
+                        if (find(id) != null || blocked.contains(id)) continue;
                         if (download(c)) gotAny = true;
                     }
                 } catch (Throwable t) {
@@ -273,15 +333,20 @@ public final class ArtRepository {
 
     private synchronized void trim() {
         while (items.size() > MAX) {
-            Artwork a = items.remove(0);
-            new File(dir, a.file).delete();
+            deleteFiles(items.remove(0));
         }
         saveIndex();
     }
 
+    private void deleteFiles(Artwork a) {
+        new File(dir, a.file).delete();
+        File[] thumbs = new File(dir, "thumbs").listFiles();
+        if (thumbs != null) for (File t : thumbs) if (t.getName().endsWith("_" + a.file)) t.delete();
+    }
+
     private synchronized void drop(Artwork a) {
         items.remove(a);
-        new File(dir, a.file).delete();
+        deleteFiles(a);
         saveIndex();
     }
 

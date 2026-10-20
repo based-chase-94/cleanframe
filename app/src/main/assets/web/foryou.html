@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>For You shows</title>
+<title>CleanFrame</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" href="icon.png">
@@ -55,6 +55,31 @@
   .bar { position: sticky; bottom: 0; background: linear-gradient(transparent, var(--bg) 30%); padding: 24px 0 8px; display: flex; gap: 10px; align-items: center; }
   .help { color: var(--muted); font-size: 13px; }
   .help b { color: var(--text); font-weight: 500; }
+  .tabs { display: flex; gap: 8px; margin-top: 20px; }
+  .tabs button[aria-selected="true"] { background: var(--accent); color: #000; border-color: var(--accent); }
+  .artbar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; margin: 24px 0 14px; }
+  .artbar label { display: flex; gap: 8px; align-items: center; color: var(--muted); cursor: pointer; }
+  .artbar input[type=checkbox] { width: auto; }
+  .artgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+  .art { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; transition: opacity .3s; }
+  .art.gone { opacity: 0; pointer-events: none; }
+  .frame { position: relative; aspect-ratio: 16 / 9; background: #000 center / cover no-repeat; container-type: inline-size; cursor: zoom-in; }
+  .frame.loading::after { content: "Downloading…"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+  .menu { position: absolute; inset: 0; pointer-events: none; display: none; }
+  .withmenu .menu { display: block; }
+  .menu .scrim { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.667), rgba(0,0,0,.275) 50%, rgba(0,0,0,0)); }
+  .menu .top { position: absolute; left: 0; right: 0; top: 0; height: 14.6cqw; background: linear-gradient(rgba(0,0,0,.47), rgba(0,0,0,0)); }
+  .menu .clock { position: absolute; left: 6.67cqw; top: 3.3cqw; font-family: "Instrument Serif", Georgia, serif; font-size: 5cqw; line-height: 1; color: #fff; text-shadow: 0 .1cqw .6cqw rgba(0,0,0,.55); }
+  .menu .list { position: absolute; left: 6.67cqw; top: 50%; transform: translateY(-50%); }
+  .menu .row { height: 6.19cqw; display: flex; align-items: center; font-family: "Instrument Serif", Georgia, serif; font-size: 4.36cqw;
+    color: #fff; opacity: .55; white-space: nowrap; text-shadow: 0 .1cqw .6cqw rgba(0,0,0,.55); }
+  .menu .row:first-child { opacity: 1; }
+  .menu .row:nth-child(5) { opacity: .2; }
+  .art .cap { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .art .cap .t { font-family: "Instrument Serif", Georgia, serif; font-size: 19px; line-height: 1.15; }
+  .art .cap .m { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .art .cap .btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .badge { font-size: 11px; color: #000; background: var(--accent); border-radius: 999px; padding: 1px 8px; margin-left: 6px; vertical-align: 2px; font-family: -apple-system, sans-serif; }
   @media (max-width: 640px) {
     h1 { font-size: 40px; }
     .show { grid-template-columns: 48px 1fr; }
@@ -65,10 +90,25 @@
 </head>
 <body>
 <main>
-  <h1>For You</h1>
-  <p class="sub">The shows on your TV's For You screen. Changes save to the TV straight away.</p>
+  <h1>CleanFrame</h1>
+  <p class="sub" id="sub">The shows on your TV's For You screen. Changes save to the TV straight away.</p>
   <div class="status" id="status"></div>
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tabShows" aria-selected="true">For You shows</button>
+    <button type="button" role="tab" id="tabArt" aria-selected="false">Artwork</button>
+  </div>
 
+  <section id="artView" hidden>
+    <div class="artbar">
+      <div id="artCount" class="help"></div>
+      <label><input type="checkbox" id="withMenu" checked> Preview with the Home menu</label>
+    </div>
+    <p class="help">Remove any painting you don't like or that makes the menu hard to read. It won't come back, and the TV downloads a new one in its place.
+      <b>Show on TV</b> puts a painting behind the Home menu now, so you can check it on the real screen.</p>
+    <div class="artgrid" id="artGrid"></div>
+  </section>
+
+  <section id="showsView">
   <h2>Add a show</h2>
   <form class="search" id="searchForm">
     <input id="q" placeholder="Search for a show, e.g. The Bear" autocomplete="off">
@@ -81,6 +121,7 @@
   <p class="help">For a show to open directly, paste its page address from the service's website into <b>Web address</b>.
     <b>Find it</b> opens the service's search in a new tab. Without an address, the TV searches for the show in the app, or just opens the app.</p>
   <div class="shows" id="shows"></div>
+  </section>
 </main>
 
 <script>
@@ -300,6 +341,120 @@
     add(q || "New show", "");
     $("q").value = "";
   });
+
+  // Artwork
+
+  var art = { items: [], homeApps: [] };
+  var artTimer = null;
+
+  function showTab(which) {
+    var isArt = which === "art";
+    $("artView").hidden = !isArt;
+    $("showsView").hidden = isArt;
+    $("tabArt").setAttribute("aria-selected", String(isArt));
+    $("tabShows").setAttribute("aria-selected", String(!isArt));
+    document.title = isArt ? "CleanFrame artwork" : "For You shows";
+    $("sub").textContent = isArt ? "The paintings saved on your TV for Home and art mode."
+      : "The shows on your TV's For You screen. Changes save to the TV straight away.";
+    if (location.hash !== (isArt ? "#art" : "#shows")) history.replaceState(null, "", isArt ? "#art" : "#shows");
+    if (isArt) loadArt();
+  }
+  $("tabArt").addEventListener("click", function () { showTab("art"); });
+  $("tabShows").addEventListener("click", function () { showTab("shows"); });
+
+  $("withMenu").addEventListener("change", function () {
+    $("artGrid").classList.toggle("withmenu", $("withMenu").checked);
+  });
+  $("artGrid").classList.add("withmenu");
+
+  function loadArt() {
+    clearTimeout(artTimer);
+    return api("GET", "api/art").then(function (s) {
+      art = s;
+      renderArt();
+      // While the TV fetches replacements, keep checking so they appear here.
+      if (s.fetching && !$("artView").hidden) artTimer = setTimeout(loadArt, 3000);
+    }).catch(function (e) { status("Couldn't reach the TV (" + e.message + "). Is it on?", true); });
+  }
+
+  function artCount() {
+    var n = art.items.length;
+    $("artCount").textContent = n + (n === 1 ? " painting" : " paintings") + " saved on the TV"
+      + (art.removed ? " · " + art.removed + " removed for good" : "")
+      + (art.fetching ? " · downloading replacements…" : "")
+      + (art.error ? " · " + art.error : "");
+  }
+
+  function menuMock() {
+    var names = (art.homeApps || []).slice(0, 5);
+    var list = el("div", { "class": "list" }, names.map(function (n) { return el("div", { "class": "row", text: n }); }));
+    var now = new Date();
+    var h = now.getHours() % 12 || 12, m = ("0" + now.getMinutes()).slice(-2);
+    return el("div", { "class": "menu" }, [el("div", { "class": "scrim" }), el("div", { "class": "top" }),
+      el("div", { "class": "clock", text: h + ":" + m }), list]);
+  }
+
+  function renderArt() {
+    artCount();
+    var grid = $("artGrid");
+    var have = {};
+    Array.prototype.forEach.call(grid.children, function (c) { have[c.dataset.id] = c; });
+    var keep = {};
+    art.items.forEach(function (a, i) {
+      keep[a.id] = true;
+      var card = have[a.id];
+      if (!card) {
+        card = artCard(a);
+        grid.insertBefore(card, grid.children[i] || null);
+      }
+      var badge = card.querySelector(".badge");
+      if (badge) badge.hidden = !a.onHome;
+    });
+    Object.keys(have).forEach(function (id) { if (!keep[id]) grid.removeChild(have[id]); });
+  }
+
+  function artCard(a) {
+    var src = "api/art/image?id=" + encodeURIComponent(a.id);
+    var frame = el("div", { "class": "frame loading", title: "Open full size", onclick: function () {
+      window.open(src + "&size=full", "_blank");
+    }}, [menuMock()]);
+    var img = new Image();
+    img.onload = function () { frame.style.backgroundImage = "url(\"" + src + "\")"; frame.classList.remove("loading"); };
+    img.src = src;
+
+    var card;
+    var remove = el("button", { type: "button", text: "Remove", onclick: function () {
+      card.classList.add("gone");
+      api("POST", "api/art/remove?id=" + encodeURIComponent(a.id)).then(function () {
+        status("Removed " + a.title + ". A new painting is on its way.");
+        return loadArt();
+      }).catch(function (e) {
+        card.classList.remove("gone");
+        status("Couldn't remove it (" + e.message + ")", true);
+      });
+    }});
+    var show = el("button", { type: "button", text: "Show on TV", onclick: function () {
+      api("POST", "api/art/show?id=" + encodeURIComponent(a.id)).then(function () {
+        status("Showing " + a.title + " behind the Home menu");
+        art.items.forEach(function (x) { x.onHome = x.id === a.id; });
+        renderArt();
+      }).catch(function (e) { status("Couldn't show it (" + e.message + ")", true); });
+    }});
+    var badge = el("span", { "class": "badge", text: "On Home" });
+    badge.hidden = !a.onHome;
+    var t = el("div", { "class": "t", text: a.title });
+    t.appendChild(badge);
+    var meta = [a.artist, a.date].filter(Boolean).join(", ");
+    var cap = el("div", { "class": "cap" }, [
+      el("div", {}, [t, el("div", { "class": "m", text: [meta, a.museum].filter(Boolean).join(" · ") })]),
+      el("div", { "class": "btns" }, [show, remove])
+    ]);
+    card = el("div", { "class": "art" }, [frame, cap]);
+    card.dataset.id = a.id;
+    return card;
+  }
+
+  showTab(location.hash === "#art" ? "art" : "shows");
 
   api("GET", "api/shows").then(function (s) {
     state = s;

@@ -18,6 +18,13 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
     /** True while the home screen is the resumed activity. */
     static boolean isInFront() { return inFront; }
 
+    private static HomeActivity resumed;
+
+    /** Shows the painting now chosen for Home, if the home screen is up. Main thread only. */
+    static void homeArtChanged() {
+        if (resumed != null) resumed.refreshBackground(true, false);
+    }
+
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         repo = ArtRepository.get(this);
@@ -29,6 +36,7 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
     @Override protected void onResume() {
         super.onResume();
         inFront = true;
+        resumed = this;
         repo.addListener(this);
         repo.ensureStocked();
         screen.bindApps(HomeScreen.homeApps(this), focusedPkg);
@@ -52,6 +60,7 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
 
     @Override protected void onPause() {
         inFront = false;
+        if (resumed == this) resumed = null;
         repo.removeListener(this);
         super.onPause();
     }
