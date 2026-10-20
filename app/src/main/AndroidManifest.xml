@@ -54,6 +54,17 @@
             android:screenOrientation="landscape" />
 
         <activity
+            android:name=".ForYouActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.CleanFrame.Art" />
+
+        <activity
+            android:name=".ForYouEditorActivity"
+            android:exported="false"
+            android:screenOrientation="landscape" />
+
+        <activity
             android:name=".ArtModeActivity"
             android:exported="true"
             android:launchMode="singleTask"

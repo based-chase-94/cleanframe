@@ -84,6 +84,7 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
         AppCatalog.launch(this, app.pkg, app.label);
     }
 
+    @Override public void onForYou() { startActivity(new Intent(this, ForYouActivity.class)); }
     @Override public void onArtMode() { startActivity(new Intent(this, ArtModeActivity.class)); }
     @Override public void onAllApps() { startActivity(new Intent(this, AllAppsActivity.class)); }
     @Override public void onSettings() { startActivity(new Intent(this, SettingsActivity.class)); }

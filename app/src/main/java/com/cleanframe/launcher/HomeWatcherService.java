@@ -230,6 +230,7 @@ public class HomeWatcherService extends AccessibilityService {
                 chosenOnCover();
                 AppCatalog.launch(ctx, app.pkg, app.label);
             }
+            @Override public void onForYou() { open(ForYouActivity.class); }
             @Override public void onArtMode() { open(ArtModeActivity.class); }
             @Override public void onAllApps() { open(AllAppsActivity.class); }
             @Override public void onSettings() { open(SettingsActivity.class); }

@@ -146,6 +146,14 @@ public final class AppCatalog {
         return homeChanged;
     }
 
+    /** The installed app for a default Home app by its key ("hulu", "prime video", ...), or null. */
+    public static AppEntry findDefault(List<AppEntry> apps, String key) {
+        for (String[] want : DEFAULT_HOME) {
+            if (want[0].equals(key)) return find(apps, want, new ArrayList<String>());
+        }
+        return null;
+    }
+
     /** The installed app for one {@link #DEFAULT_HOME} entry, skipping {@code taken}. */
     private static AppEntry find(List<AppEntry> apps, String[] want, List<String> taken) {
         AppEntry best = null;

@@ -90,6 +90,19 @@ public class SettingsActivity extends IdleActivity {
             @Override public void run() { Prefs.setWeatherOn(SettingsActivity.this, !Prefs.weatherOn(SettingsActivity.this)); }
         }));
 
+        section("For You");
+        rows.add(new Row("Shows on For You", new Value() {
+            @Override public String get() {
+                int n = Shows.load(SettingsActivity.this).size();
+                return n + (n == 1 ? " show" : " shows");
+            }
+        }, new Runnable() {
+            @Override public void run() { startActivity(new Intent(SettingsActivity.this, ForYouEditorActivity.class)); }
+        }));
+        rows.add(new Row("Open For You", null, new Runnable() {
+            @Override public void run() { startActivity(new Intent(SettingsActivity.this, ForYouActivity.class)); }
+        }));
+
         section("Art mode");
         rows.add(new Row("Start art mode now", null, new Runnable() {
             @Override public void run() { startActivity(new Intent(SettingsActivity.this, ArtModeActivity.class)); }

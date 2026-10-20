@@ -20,12 +20,13 @@ import java.util.Map;
 
 /**
  * The home screen's views: artwork behind a short list of big app names, clock top-left,
- * and art mode / all apps / settings top-right. Used by {@link HomeActivity} and, while
+ * and For You / art mode / all apps / settings top-right. Right from the list opens For You. Used by {@link HomeActivity} and, while
  * Fire OS holds back app launches after a Home press, by {@link HomeWatcherService}'s cover.
  */
 final class HomeScreen extends FrameLayout {
     interface Actions {
         void onApp(AppCatalog.AppEntry app);
+        void onForYou();
         void onArtMode();
         void onAllApps();
         void onSettings();
@@ -44,6 +45,7 @@ final class HomeScreen extends FrameLayout {
     private final TextView credit;
     private final FadeScrollView scroll;
     private final LinearLayout list;
+    private final ImageView forYouButton;
     private final ImageView artButton;
     private final ImageView appsButton;
     private final ImageView settingsButton;
@@ -128,15 +130,19 @@ final class HomeScreen extends FrameLayout {
 
         LinearLayout controls = new LinearLayout(c);
         controls.setOrientation(LinearLayout.HORIZONTAL);
+        forYouButton = Ui.iconButton(c, R.drawable.ic_foryou, "For You");
         artButton = Ui.iconButton(c, R.drawable.ic_art, "Art mode");
         appsButton = Ui.iconButton(c, R.drawable.ic_apps, "All apps");
         settingsButton = Ui.iconButton(c, R.drawable.ic_settings, "Settings");
         int size = Ui.dp(c, 52);
-        for (ImageView b : new ImageView[]{artButton, appsButton, settingsButton}) {
+        for (ImageView b : buttons()) {
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
             lp.leftMargin = Ui.dp(c, 10);
             controls.addView(b, lp);
         }
+        forYouButton.setOnClickListener(new OnClickListener() {
+            @Override public void onClick(View v) { actions.onForYou(); }
+        });
         artButton.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) { actions.onArtMode(); }
         });
@@ -273,11 +279,15 @@ final class HomeScreen extends FrameLayout {
         }
 
         View first = list.getChildAt(0);
-        first.setNextFocusUpId(artButton.getId());
-        for (ImageView b : new ImageView[]{artButton, appsButton, settingsButton}) b.setNextFocusDownId(first.getId());
+        first.setNextFocusUpId(forYouButton.getId());
+        for (ImageView b : buttons()) b.setNextFocusDownId(first.getId());
         View last = list.getChildAt(list.getChildCount() - 1);
         last.setNextFocusDownId(last.getId());
         (focusTarget != null ? focusTarget : first).requestFocus();
+    }
+
+    private ImageView[] buttons() {
+        return new ImageView[]{forYouButton, artButton, appsButton, settingsButton};
     }
 
     void focusFirst() {
@@ -337,6 +347,13 @@ final class HomeScreen extends FrameLayout {
             @Override public void onFocusChange(View v, boolean hasFocus) { styleFocus(row, hasFocus); }
         });
         styleFocus(row, false);
+        row.setOnKeyListener(new OnKeyListener() {
+            @Override public boolean onKey(View v, int keyCode, android.view.KeyEvent e) {
+                if (keyCode != android.view.KeyEvent.KEYCODE_DPAD_RIGHT) return false;
+                if (e.getAction() == android.view.KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) actions.onForYou();
+                return true;
+            }
+        });
         return row;
     }
 
