@@ -28,8 +28,10 @@ public class PlaqueView extends LinearLayout {
         byline.setPadding(0, Ui.dp(c, 6), 0, 0);
         byline.setMaxWidth(Ui.dp(c, 360));
         byline.setGravity(Gravity.END);
-        museum = Ui.text(c, "", 12, Ui.REGULAR, Color.argb(160, 255, 255, 255));
-        museum.setPadding(0, Ui.dp(c, 4), 0, 0);
+        museum = Ui.text(c, "", 11, Ui.light(c), Color.argb(170, 255, 255, 255));
+        museum.setAllCaps(true);
+        museum.setLetterSpacing(0.14f);
+        museum.setPadding(0, Ui.dp(c, 6), 0, 0);
         museum.setGravity(Gravity.END);
 
         addView(title);

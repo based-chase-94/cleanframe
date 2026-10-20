@@ -13,7 +13,7 @@ A custom home screen and Frame-style art mode for the TCL 65S450F (Fire TV Editi
 
 Default Home apps are YouTube, Prime Video, WOW Presents Plus, Hulu, Paramount+, Tubi and Crunchyroll, picked by name from what's installed. A default app installed later joins Home the first time it's seen, if there's room; once removed in the editor it stays removed.
 
-Logos for YouTube, Prime Video, Hulu, Paramount+, Tubi and Crunchyroll are vector drawables made from [Simple Icons](https://simpleicons.org) (CC0). Any other app's logo is lifted out of its own icon at runtime (`AppLogos`). The font is [Instrument Serif](https://fonts.google.com/specimen/Instrument+Serif) (SIL Open Font License, in `assets/fonts`).
+Logos for YouTube, Prime Video, Hulu, Paramount+, Tubi and Crunchyroll are vector drawables made from [Simple Icons](https://simpleicons.org) (CC0). Any other app's logo is lifted out of its own icon at runtime (`AppLogos`). Fonts are [Instrument Serif](https://fonts.google.com/specimen/Instrument+Serif) for app names and titles, and [Work Sans](https://fonts.google.com/specimen/Work+Sans) Light (a static 300 instance) for the clock, temperature and museum names; both SIL Open Font License, in `assets/fonts`.
 
 ## Install on the TV
 
