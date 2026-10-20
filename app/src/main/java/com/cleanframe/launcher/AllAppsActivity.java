@@ -31,7 +31,7 @@ public class AllAppsActivity extends IdleActivity {
         root.setBackgroundColor(Color.rgb(14, 14, 16));
         root.setPadding(Ui.dp(this, 64), Ui.dp(this, 40), Ui.dp(this, 64), 0);
 
-        root.addView(Ui.text(this, "All apps", 34, Ui.DISPLAY, Color.WHITE));
+        root.addView(Ui.text(this, "All apps", 44, Ui.serif(this), Color.WHITE));
         TextView hint = Ui.text(this, "OK opens · Menu ☰ or hold OK to add to Home or remove from it",
                 14, Ui.REGULAR, Color.argb(150, 255, 255, 255));
         hint.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 20));

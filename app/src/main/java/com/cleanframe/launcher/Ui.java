@@ -15,7 +15,29 @@ final class Ui {
     static final Typeface LIGHT = Typeface.create("sans-serif-light", Typeface.NORMAL);
     static final Typeface REGULAR = Typeface.create("sans-serif", Typeface.NORMAL);
 
+    private static Typeface serif;
+    private static Typeface serifItalic;
+
     private Ui() {}
+
+    /** Instrument Serif, for app names, the clock and page titles. */
+    static synchronized Typeface serif(Context c) {
+        if (serif == null) serif = font(c, "fonts/InstrumentSerif-Regular.ttf", Typeface.SERIF);
+        return serif;
+    }
+
+    static synchronized Typeface serifItalic(Context c) {
+        if (serifItalic == null) serifItalic = font(c, "fonts/InstrumentSerif-Italic.ttf", Typeface.create(Typeface.SERIF, Typeface.ITALIC));
+        return serifItalic;
+    }
+
+    private static Typeface font(Context c, String asset, Typeface fallback) {
+        try {
+            return Typeface.createFromAsset(c.getApplicationContext().getAssets(), asset);
+        } catch (RuntimeException e) {
+            return fallback;
+        }
+    }
 
     static int dp(Context c, float v) {
         return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, c.getResources().getDisplayMetrics()));

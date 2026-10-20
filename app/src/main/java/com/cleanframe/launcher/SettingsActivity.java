@@ -49,7 +49,7 @@ public class SettingsActivity extends IdleActivity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.rgb(14, 14, 16));
         root.setPadding(Ui.dp(this, 64), Ui.dp(this, 40), Ui.dp(this, 64), 0);
-        root.addView(Ui.text(this, "Settings", 34, Ui.DISPLAY, Color.WHITE));
+        root.addView(Ui.text(this, "Settings", 44, Ui.serif(this), Color.WHITE));
 
         ScrollView scroll = new ScrollView(this);
         scroll.setVerticalScrollBarEnabled(false);

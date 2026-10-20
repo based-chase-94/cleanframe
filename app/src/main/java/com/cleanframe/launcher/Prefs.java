@@ -13,6 +13,7 @@ public final class Prefs {
     private static final String HOME_ORDER = "home_order";
     private static final String HOME_INITIALIZED = "home_initialized";
     private static final String RECENTLY_REMOVED = "recently_removed";
+    private static final String HOME_DEFAULTS_SEEN = "home_defaults_seen";
     private static final String IDLE_MINUTES = "idle_minutes";
     private static final String ART_INTERVAL_MINUTES = "art_interval_minutes";
     private static final String ART_DISPLAY = "art_display";
@@ -68,6 +69,10 @@ public final class Prefs {
     }
 
     public static boolean homeInitialized(Context c) { return sp(c).getBoolean(HOME_INITIALIZED, false); }
+
+    /** Default Home apps (by their label prefix) already offered once, so a removed one stays removed. */
+    public static List<String> homeDefaultsSeen(Context c) { return getList(c, HOME_DEFAULTS_SEEN); }
+    public static void setHomeDefaultsSeen(Context c, List<String> keys) { putList(c, HOME_DEFAULTS_SEEN, keys); }
 
     public static List<String> recentlyRemoved(Context c) { return getList(c, RECENTLY_REMOVED); }
 

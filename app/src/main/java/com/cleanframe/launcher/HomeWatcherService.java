@@ -252,7 +252,8 @@ public class HomeWatcherService extends AccessibilityService {
         screen.bindApps(HomeScreen.homeApps(ctx), null);
 
         ArtRepository repo = ArtRepository.get(this);
-        final ArtRepository.Artwork a = repo.find(Prefs.homeArtId(this));
+        // The cover is the first thing a Home press shows, so it picks the new painting.
+        final ArtRepository.Artwork a = HomeScreen.homeArtwork(this, repo, true);
         if (a != null && Prefs.homeBackgroundArt(this)) {
             repo.loadBitmap(a, new ArtRepository.BitmapCallback() {
                 @Override public void onBitmap(Bitmap b) {

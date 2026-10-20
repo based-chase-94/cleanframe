@@ -12,6 +12,8 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
     private HomeScreen screen;
     private String focusedPkg;
     private ArtRepository repo;
+    /** Set when Home brought this screen up, so the next resume shows a new painting. */
+    private boolean homePressed = true;
 
     /** True while the home screen is the resumed activity. */
     static boolean isInFront() { return inFront; }
@@ -29,7 +31,8 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
         repo.addListener(this);
         repo.ensureStocked();
         screen.bindApps(HomeScreen.homeApps(this), focusedPkg);
-        refreshBackground(false);
+        refreshBackground(false, homePressed);
+        homePressed = false;
     }
 
     @Override public void onWindowFocusChanged(boolean hasFocus) {
@@ -55,6 +58,7 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
         super.onNewIntent(intent);
         // Pressing Home while already home jumps back to the first app.
         focusedPkg = null;
+        homePressed = true;
         screen.focusFirst();
     }
 
@@ -71,7 +75,7 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
     }
 
     @Override public void onArtworkAdded() {
-        if (!screen.background.hasArtwork()) refreshBackground(true);
+        if (!screen.background.hasArtwork()) refreshBackground(true, false);
     }
 
     @Override public void onApp(AppCatalog.AppEntry app) {
@@ -84,23 +88,18 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
     @Override public void onSettings() { startActivity(new Intent(this, SettingsActivity.class)); }
     @Override public void onAddApps() { startActivity(new Intent(this, HomeEditorActivity.class)); }
 
-    private void refreshBackground(final boolean animate) {
+    private void refreshBackground(final boolean animate, boolean pressed) {
         if (!Prefs.homeBackgroundArt(this)) {
             screen.clearArtwork();
             return;
         }
-        ArtRepository.Artwork art = repo.find(Prefs.homeArtId(this));
-        long age = System.currentTimeMillis() - Prefs.homeArtSince(this);
-        boolean stale = age > Prefs.artIntervalMinutes(this) * 60_000L;
-        if (art == null || stale) {
-            ArtRepository.Artwork next = repo.pickNext();
-            if (next != null) art = next;
-        } else if (screen.background.hasArtwork()) {
-            return;  // Still current and already on screen.
+        final ArtRepository.Artwork shown = HomeScreen.homeArtwork(this, repo, pressed);
+        if (shown == null || screen.isShowing(shown)) return;
+        Bitmap ready = HomeScreen.decoded(shown);
+        if (ready != null) {
+            screen.showArtwork(shown, ready, animate);
+            return;
         }
-        if (art == null) return;
-        final ArtRepository.Artwork shown = art;
-        Prefs.setHomeArt(this, shown.id);
         repo.loadBitmap(shown, new ArtRepository.BitmapCallback() {
             @Override public void onBitmap(Bitmap b) {
                 if (b != null) screen.showArtwork(shown, b, animate || screen.background.hasArtwork());
