@@ -45,6 +45,19 @@ final class HomeScreen extends FrameLayout {
     private final ImageView artButton;
     private final ImageView appsButton;
     private final ImageView settingsButton;
+    private final TextView weatherDot;
+    private final ImageView weatherIcon;
+    private final TextView weatherTemp;
+    /** Re-checks the weather while this screen is up; the fetch itself only runs when it's due. */
+    private final Runnable weatherTick = new Runnable() {
+        @Override public void run() {
+            showWeather();
+            Weather.refresh(getContext(), new Runnable() {
+                @Override public void run() { showWeather(); }
+            });
+            postDelayed(this, 5 * 60_000L);
+        }
+    };
     private final Actions actions;
     /**
      * The last painting either copy of the home screen decoded. The Home-button cover decodes
@@ -82,9 +95,32 @@ final class HomeScreen extends FrameLayout {
         clock.setTypeface(Ui.serif(c));
         clock.setTextColor(Color.WHITE);
         Ui.shadow(clock);
-        LayoutParams clockLp = wrap(Gravity.TOP | Gravity.START);
-        clockLp.setMargins(Ui.dp(c, 64), Ui.dp(c, 34), 0, 0);
-        addView(clock, clockLp);
+
+        // Clock · weather icon · temperature, on one line.
+        LinearLayout timeLine = new LinearLayout(c);
+        timeLine.setOrientation(LinearLayout.HORIZONTAL);
+        timeLine.setGravity(Gravity.CENTER_VERTICAL);
+        timeLine.addView(clock);
+        weatherDot = Ui.text(c, "\u00b7", 48, Ui.serif(c), Color.argb(170, 255, 255, 255));
+        Ui.shadow(weatherDot);
+        LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        dotLp.leftMargin = Ui.dp(c, 14);
+        dotLp.rightMargin = Ui.dp(c, 14);
+        timeLine.addView(weatherDot, dotLp);
+        weatherIcon = new ImageView(c);
+        weatherIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        int iconSize = Ui.dp(c, 42);
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(iconSize, iconSize);
+        iconLp.rightMargin = Ui.dp(c, 8);
+        timeLine.addView(weatherIcon, iconLp);
+        weatherTemp = Ui.text(c, "", 48, Ui.serif(c), Color.WHITE);
+        Ui.shadow(weatherTemp);
+        timeLine.addView(weatherTemp);
+        LayoutParams timeLp = wrap(Gravity.TOP | Gravity.START);
+        timeLp.setMargins(Ui.dp(c, 64), Ui.dp(c, 34), 0, 0);
+        addView(timeLine, timeLp);
+        showWeather();
 
         LinearLayout controls = new LinearLayout(c);
         controls.setOrientation(LinearLayout.HORIZONTAL);
@@ -128,6 +164,34 @@ final class HomeScreen extends FrameLayout {
         LayoutParams creditLp = wrap(Gravity.BOTTOM | Gravity.END);
         creditLp.setMargins(0, 0, Ui.dp(c, 56), Ui.dp(c, 28));
         addView(credit, creditLp);
+    }
+
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        refreshWeather();
+    }
+
+    /** Shows the saved weather now and fetches new conditions if they're due. */
+    void refreshWeather() {
+        removeCallbacks(weatherTick);
+        weatherTick.run();
+    }
+
+    @Override protected void onDetachedFromWindow() {
+        removeCallbacks(weatherTick);
+        super.onDetachedFromWindow();
+    }
+
+    /** Shows the latest weather beside the clock, or nothing if there's no recent reading. */
+    void showWeather() {
+        Weather.Now w = Weather.current(getContext());
+        int v = w == null ? GONE : VISIBLE;
+        weatherDot.setVisibility(v);
+        weatherIcon.setVisibility(v);
+        weatherTemp.setVisibility(v);
+        if (w == null) return;
+        weatherIcon.setImageResource(w.icon);
+        weatherTemp.setText(w.fahrenheit + "\u00b0");
     }
 
     /** The apps on Home, in order, skipping any that are no longer installed. */

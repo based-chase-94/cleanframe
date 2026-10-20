@@ -84,6 +84,12 @@ public class SettingsActivity extends IdleActivity {
             @Override public void run() { Prefs.setHomeBackgroundArt(SettingsActivity.this, !Prefs.homeBackgroundArt(SettingsActivity.this)); }
         }));
 
+        rows.add(new Row("Weather beside the clock", new Value() {
+            @Override public String get() { return Prefs.weatherOn(SettingsActivity.this) ? "On" : "Off"; }
+        }, new Runnable() {
+            @Override public void run() { Prefs.setWeatherOn(SettingsActivity.this, !Prefs.weatherOn(SettingsActivity.this)); }
+        }));
+
         section("Art mode");
         rows.add(new Row("Start art mode now", null, new Runnable() {
             @Override public void run() { startActivity(new Intent(SettingsActivity.this, ArtModeActivity.class)); }
