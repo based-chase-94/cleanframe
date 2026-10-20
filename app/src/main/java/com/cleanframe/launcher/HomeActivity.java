@@ -26,11 +26,23 @@ public class HomeActivity extends IdleActivity implements ArtRepository.Listener
     @Override protected void onResume() {
         super.onResume();
         inFront = true;
-        HomeWatcherService.onHomeShown();
         repo.addListener(this);
         repo.ensureStocked();
         screen.bindApps(HomeScreen.homeApps(this), focusedPkg);
         refreshBackground(false);
+    }
+
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) HomeWatcherService.onHomeShown();
+    }
+
+    @Override public void onEnterAnimationComplete() {
+        super.onEnterAnimationComplete();
+        // Only uncover once this window is really on screen, or the Amazon screen flashes through.
+        getWindow().getDecorView().post(new Runnable() {
+            @Override public void run() { HomeWatcherService.onHomeShown(); }
+        });
     }
 
     @Override protected void onPause() {

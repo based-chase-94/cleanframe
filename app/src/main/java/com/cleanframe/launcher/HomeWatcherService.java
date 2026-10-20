@@ -200,17 +200,16 @@ public class HomeWatcherService extends AccessibilityService {
         handler.removeCallbacks(retry);
         handler.removeCallbacks(coverTimeout);
         redirectStarted = 0;
-        // Give the home screen a moment to draw before uncovering it.
-        handler.postDelayed(new Runnable() {
-            @Override public void run() { removeCover(); }
-        }, 250);
+        fadeOutCover();
     }
 
     private void startHome() {
         try {
             Intent i = new Intent(this, HomeActivity.class);
+            // No window animation: the cover already looks like home, so the swap should be a cut.
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                    | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    | Intent.FLAG_ACTIVITY_NO_ANIMATION);
             startActivity(i);
         } catch (Exception e) {
             Log.w(TAG, "start failed", e);
@@ -279,6 +278,17 @@ public class HomeWatcherService extends AccessibilityService {
     private void open(Class<?> activity) {
         chosenOnCover();
         startActivity(new Intent(this, activity).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    }
+
+    /** Fades the cover out, so the hand-over to the real home screen has no hard cut. */
+    private void fadeOutCover() {
+        final View v = cover;
+        if (v == null) return;
+        v.animate().alpha(0f).setDuration(180).withEndAction(new Runnable() {
+            @Override public void run() {
+                if (cover == v) removeCover();
+            }
+        }).start();
     }
 
     private void removeCover() {
