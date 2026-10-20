@@ -43,6 +43,12 @@ final class HomeScreen extends FrameLayout {
 
     final ArtCanvasView background;
     private final TextView credit;
+    private final TextView museum;
+    /** The icon row top right, in dp; the clock line matches it. */
+    private static final int CONTROL_TOP = 32;
+    private static final int CONTROL_SIZE = 52;
+    /** Clock, divider and temperature size, in sp. */
+    private static final float TIME_SP = 30;
     private final FadeScrollView scroll;
     private final LinearLayout list;
     private final ImageView forYouButton;
@@ -97,8 +103,9 @@ final class HomeScreen extends FrameLayout {
         TextClock clock = new TextClock(c);
         clock.setFormat12Hour("h:mm");
         clock.setFormat24Hour("H:mm");
-        clock.setTextSize(48);
-        clock.setTypeface(Ui.serif(c));
+        clock.setTextSize(TIME_SP);
+        clock.setTypeface(Ui.light(c));
+        clock.setIncludeFontPadding(false);
         clock.setTextColor(Color.WHITE);
         Ui.shadow(clock);
 
@@ -107,24 +114,26 @@ final class HomeScreen extends FrameLayout {
         timeLine.setOrientation(LinearLayout.HORIZONTAL);
         timeLine.setGravity(Gravity.CENTER_VERTICAL);
         timeLine.addView(clock);
-        weatherDot = Ui.text(c, "\u00b7", 48, Ui.serif(c), Color.argb(170, 255, 255, 255));
+        weatherDot = Ui.text(c, "\u00b7", TIME_SP, Ui.light(c), Color.argb(170, 255, 255, 255));
         Ui.shadow(weatherDot);
         LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        dotLp.leftMargin = Ui.dp(c, 14);
-        dotLp.rightMargin = Ui.dp(c, 14);
+        dotLp.leftMargin = Ui.dp(c, 10);
+        dotLp.rightMargin = Ui.dp(c, 10);
         timeLine.addView(weatherDot, dotLp);
         weatherIcon = new ImageView(c);
         weatherIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        int iconSize = Ui.dp(c, 42);
+        int iconSize = Ui.dp(c, 27);
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(iconSize, iconSize);
-        iconLp.rightMargin = Ui.dp(c, 8);
+        iconLp.rightMargin = Ui.dp(c, 6);
         timeLine.addView(weatherIcon, iconLp);
-        weatherTemp = Ui.text(c, "", 48, Ui.serif(c), Color.WHITE);
+        weatherTemp = Ui.text(c, "", TIME_SP, Ui.light(c), Color.WHITE);
         Ui.shadow(weatherTemp);
         timeLine.addView(weatherTemp);
-        LayoutParams timeLp = wrap(Gravity.TOP | Gravity.START);
-        timeLp.setMargins(Ui.dp(c, 64), Ui.dp(c, 34), 0, 0);
+        // Same height and top as the icon row on the right, so the two share a centre line.
+        LayoutParams timeLp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(c, CONTROL_SIZE),
+                Gravity.TOP | Gravity.START);
+        timeLp.setMargins(Ui.dp(c, 64), Ui.dp(c, CONTROL_TOP), 0, 0);
         addView(timeLine, timeLp);
         showWeather();
 
@@ -134,7 +143,7 @@ final class HomeScreen extends FrameLayout {
         artButton = Ui.iconButton(c, R.drawable.ic_art, "Art mode");
         appsButton = Ui.iconButton(c, R.drawable.ic_apps, "All apps");
         settingsButton = Ui.iconButton(c, R.drawable.ic_settings, "Settings");
-        int size = Ui.dp(c, 52);
+        int size = Ui.dp(c, CONTROL_SIZE);
         for (ImageView b : buttons()) {
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
             lp.leftMargin = Ui.dp(c, 10);
@@ -153,7 +162,7 @@ final class HomeScreen extends FrameLayout {
             @Override public void onClick(View v) { actions.onSettings(); }
         });
         LayoutParams controlsLp = wrap(Gravity.TOP | Gravity.END);
-        controlsLp.setMargins(0, Ui.dp(c, 32), Ui.dp(c, 56), 0);
+        controlsLp.setMargins(0, Ui.dp(c, CONTROL_TOP), Ui.dp(c, 56), 0);
         addView(controls, controlsLp);
 
         // Exactly five rows tall. The fades are one row deep and only show where more rows
@@ -172,13 +181,27 @@ final class HomeScreen extends FrameLayout {
         scrollLp.leftMargin = Ui.dp(c, 48);
         addView(scroll, scrollLp);
 
+        // Bottom right: title and artist in italic serif, the museum below in small capitals.
+        LinearLayout caption = new LinearLayout(c);
+        caption.setOrientation(LinearLayout.VERTICAL);
+        caption.setGravity(Gravity.END);
         credit = Ui.text(c, "", 16, Ui.serifItalic(c), Color.argb(190, 255, 255, 255));
         Ui.shadow(credit);
         credit.setGravity(Gravity.END);
         credit.setMaxWidth(Ui.dp(c, 420));
-        LayoutParams creditLp = wrap(Gravity.BOTTOM | Gravity.END);
-        creditLp.setMargins(0, 0, Ui.dp(c, 56), Ui.dp(c, 28));
-        addView(credit, creditLp);
+        caption.addView(credit);
+        museum = Ui.text(c, "", 11, Ui.light(c), Color.argb(170, 255, 255, 255));
+        Ui.shadow(museum);
+        museum.setAllCaps(true);
+        museum.setLetterSpacing(0.14f);
+        museum.setGravity(Gravity.END);
+        LinearLayout.LayoutParams museumLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        museumLp.topMargin = Ui.dp(c, 6);
+        caption.addView(museum, museumLp);
+        LayoutParams captionLp = wrap(Gravity.BOTTOM | Gravity.END);
+        captionLp.setMargins(0, 0, Ui.dp(c, 56), Ui.dp(c, 28));
+        addView(caption, captionLp);
     }
 
     @Override protected void onAttachedToWindow() {
@@ -306,13 +329,15 @@ final class HomeScreen extends FrameLayout {
             lastBitmap = b;
         }
         background.setArtwork(b, animate);
-        credit.setText(a.title + (a.artist.isEmpty() ? "" : " — " + a.artist) + "\n" + a.museum);
+        credit.setText(a.title + (a.artist.isEmpty() ? "" : " — " + a.artist));
+        museum.setText(a.museum);
     }
 
     void clearArtwork() {
         shownArtId = null;
         background.setArtwork(null, false);
         credit.setText("");
+        museum.setText("");
     }
 
     private View appRow(final AppCatalog.AppEntry app) {

@@ -17,6 +17,7 @@ final class Ui {
 
     private static Typeface serif;
     private static Typeface serifItalic;
+    private static Typeface light;
 
     private Ui() {}
 
@@ -29,6 +30,12 @@ final class Ui {
     static synchronized Typeface serifItalic(Context c) {
         if (serifItalic == null) serifItalic = font(c, "fonts/InstrumentSerif-Italic.ttf", Typeface.create(Typeface.SERIF, Typeface.ITALIC));
         return serifItalic;
+    }
+
+    /** Work Sans Light (300), for the clock, the temperature and the museum name. */
+    static synchronized Typeface light(Context c) {
+        if (light == null) light = font(c, "fonts/WorkSans-Light.ttf", LIGHT);
+        return light;
     }
 
     private static Typeface font(Context c, String asset, Typeface fallback) {
