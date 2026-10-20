@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.cleanframe.launcher'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.cleanframe.launcher'
+        // Fire OS 7 is Android 9 (API 28). Target it directly; nothing here goes to an app store.
+        minSdk 25
+        targetSdk 28
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    // One shared key so APKs built on the Mac and in CI can upgrade each other in place.
+    signingConfigs {
+        shared {
+            storeFile rootProject.file('keystore/cleanframe-debug.jks')
+            storePassword 'cleanframe'
+            keyAlias 'cleanframe'
+            keyPassword 'cleanframe'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.shared
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.shared
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lint {
+        abortOnError false
+        disable 'ExpiredTargetSdkVersion', 'OldTargetApi'
+    }
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CleanFrame</string>
+    <string name="dream_name">CleanFrame Art</string>
+    <string name="home_watcher_name">CleanFrame Home button</string>
+    <string name="home_watcher_description">Sends the Home button to CleanFrame instead of the Amazon home screen. It only looks at which app window opened and reads no screen content.</string>
+</resources>
