@@ -63,6 +63,7 @@ public final class AppCatalog {
             {"wow", "com.wowpresentsplus.firetv", "com.wowpresentsplus.androidtv"},
             {"hulu", "com.hulu.livingroomplus", "com.hulu.plus"},
             {"paramount", "com.cbs.ott", "com.cbs.app"},
+            {"netflix", "com.netflix.ninja", "com.netflix.mediaclient"},
             {"tubi", "com.tubitv.ott", "com.tubitv"},
             {"crunchyroll", "com.crunchyroll.crunchyroid"},
     };
@@ -131,14 +132,15 @@ public final class AppCatalog {
         for (String pkg : home) if (byPkg.containsKey(pkg)) shown++;
         List<String> removed = Prefs.recentlyRemoved(c);
         boolean homeChanged = false;
-        for (String[] want : DEFAULT_HOME) {
+        for (int i = 0; i < DEFAULT_HOME.length; i++) {
+            String[] want = DEFAULT_HOME[i];
             if (seen.contains(want[0])) continue;
             AppEntry app = find(apps, want, new ArrayList<String>());
             if (app == null) continue;  // Not installed yet; offer it when it is.
             seen.add(want[0]);
             seenChanged = true;
             if (home.contains(app.pkg) || removed.contains(app.pkg) || shown >= HOME_MAX) continue;
-            home.add(app.pkg);
+            home.add(insertAt(apps, home, i), app.pkg);
             shown++;
             homeChanged = true;
         }
@@ -152,6 +154,18 @@ public final class AppCatalog {
             if (want[0].equals(key)) return find(apps, want, new ArrayList<String>());
         }
         return null;
+    }
+
+    /**
+     * Where default {@code index} goes in {@code home}: just after the nearest default listed
+     * before it that's on Home (so Netflix lands under Paramount+), else at the end.
+     */
+    private static int insertAt(List<AppEntry> apps, List<String> home, int index) {
+        for (int j = index - 1; j >= 0; j--) {
+            AppEntry before = find(apps, DEFAULT_HOME[j], new ArrayList<String>());
+            if (before != null && home.contains(before.pkg)) return home.indexOf(before.pkg) + 1;
+        }
+        return home.size();
     }
 
     /** The installed app for one {@link #DEFAULT_HOME} entry, skipping {@code taken}. */

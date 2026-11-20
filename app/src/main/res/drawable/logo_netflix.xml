@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- netflix logo (the N mark) from Simple Icons (CC0), drawn white and cropped to its outline. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="52.88dp"
+    android:height="96.00dp"
+    android:viewportWidth="13.220"
+    android:viewportHeight="24.000">
+    <group android:translateX="-5.390" android:translateY="-0.000">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M5.398,0L13.746,23.602C16.092,23.661 18.602,24 18.602,24L10.113,0L5.398,0ZM13.887,0L13.887,9.172L18.602,22.502L18.602,0L13.887,0ZM5.398,1.5L5.398,24C7.271,23.775 8.208,23.688 10.113,23.602L10.113,14.83L5.398,1.5Z"/>
+    </group>
+</vector>

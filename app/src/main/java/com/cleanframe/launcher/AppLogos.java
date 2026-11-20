@@ -24,6 +24,7 @@ final class AppLogos {
             {"paramount", "com.cbs.ott", "com.cbs.app"},
             {"crunchyroll", "com.crunchyroll.crunchyroid"},
             {"tubi", "com.tubitv.ott", "com.tubitv"},
+            {"netflix", "com.netflix.ninja", "com.netflix.mediaclient"},
     };
     private static final int[] KNOWN_LOGOS = {
             R.drawable.logo_youtube,
@@ -32,6 +33,7 @@ final class AppLogos {
             R.drawable.logo_paramount,
             R.drawable.logo_crunchyroll,
             R.drawable.logo_tubi,
+            R.drawable.logo_netflix,
     };
 
     private static final int SIZE = 160;
